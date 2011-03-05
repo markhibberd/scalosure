@@ -1,0 +1,184 @@
+package s2js
+
+import org.scalatest.fixture.FixtureSpec
+import org.scalatest.{ Spec, BeforeAndAfterAll }
+
+class ImportSpecs extends PrinterFixtureSpec {
+
+    it("avoid requiring deep packages") { 
+
+        parser expect {"""
+
+        package a.b.c {
+            object d {
+                def m1() {}
+            }
+        }
+
+        """} toBe {"""
+
+        goog.provide('a.b.c.d');
+
+        a.b.c.d.m1 = function() {var self = this;};
+
+        """}
+    }
+
+    it("add requires for used classes") { 
+
+        parser expect {"""
+
+            package foo {
+                import java.util.ArrayList
+                import java.util.Calendar
+                object a {
+                    val x = new java.util.Date
+                    def m1() {
+                        val y = new java.util.Random
+                        val z = new ArrayList[String]
+                    }
+                }
+            }
+
+        """} toBe {"""
+
+            goog.provide('foo.a');
+
+            goog.require('java.util.Date');
+            goog.require('java.util.Random');
+            goog.require('java.util.ArrayList');
+
+            foo.a.x = new java.util.Date();
+
+            foo.a.m1 = function() {var self = this;
+                var y = new java.util.Random();
+                var z = new java.util.ArrayList();
+            };
+
+        """}
+    }
+
+    it("add require to a package object's owner") {
+
+        parser expect {"""
+
+            object a {
+                val x = goog.dom.getElement("foo")
+            }
+
+        """} toBe {"""
+
+            goog.provide('a');
+            goog.require('goog.dom');
+            a.x = goog.dom.getElement('foo');
+
+        """}
+    
+    }
+
+    it("ignore implicit browser imports") {
+
+        parser expect {"""
+
+        object o1 {
+            val f1 = s2js.Html(<span>foo</span>)
+
+            def m1() {
+                println(f1.innerHTML)
+            }
+        }
+
+        """} toBe {"""
+
+        goog.provide('o1');
+        o1.f1 = goog.dom.createDom('span',{},['foo']);
+        o1.m1 = function() {var self = this;
+            console.log(o1.f1.innerHTML);
+        };
+
+        """}
+    }
+
+    it("ignore explicit browser imports") {
+
+        parser expect {"""
+
+        import browser._
+
+        object o1 {
+            val f1 = window.location
+        }
+
+        """} toBe {"""
+
+        goog.provide('o1');
+        o1.f1 = window.location;
+
+        """}
+    }
+    
+    it("don't require predef items") {
+
+        parser expect {"""
+
+            object a {
+                def m1() {
+                    println("foo")
+                }
+            }
+
+        """} toBe {"""
+
+            goog.provide('a');
+            a.m1 = function() {var self = this;
+                console.log('foo');
+            };
+
+        """}
+    }
+
+    it("add requires for used object members") {
+
+        parser expect {"""
+
+            import goog.dom.TagName._
+
+            object a {
+                def foo() {
+                    println(SPAN)
+                }
+            }
+
+        """} toBe {"""
+        
+            goog.provide('a');
+            goog.require('goog.dom');
+            goog.require('goog.dom.TagName');
+            a.foo = function() {var self = this;
+                console.log(goog.dom.TagName.SPAN);
+            };
+        
+        """}
+    }
+
+    it("doesn't add require statements for packages") {
+
+        parser expect {"""
+
+            import goog.ui._
+
+            object a {
+                val x = new Button("foo")
+            }
+
+        """} toBe {"""
+        
+            goog.provide('a');
+            goog.require('goog.ui.Button');
+            a.x = new goog.ui.Button('foo');
+        
+        """}
+    }
+}
+
+// vim: set ts=4 sw=4 foldmethod=syntax et:

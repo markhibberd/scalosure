@@ -1,0 +1,159 @@
+package s2js
+
+import org.scalatest.fixture.FixtureSpec
+import org.scalatest.{ Spec, BeforeAndAfterAll }
+
+class VariableSpecs extends PrinterFixtureSpec {
+
+    describe("variables") {
+
+        it("can have literal values") {
+
+            parser expect {"""
+                package foo {
+                    class A {
+                        def m1() {
+                            val a = "foo" 
+                            val b = 1
+                            val c = true
+                            val d = 1.0
+                        }
+                    }
+                }
+            """} toBe {"""
+            
+                goog.provide('foo.A');
+                /*
+                 * @constructor
+                 */
+                foo.A = function() {var self = this;};
+
+                foo.A.prototype.m1 = function() {var self = this;
+                    var a = 'foo';
+                    var b = 1;
+                    var c = true;
+                    var d = 1.0;
+                };
+
+            """}
+        }
+
+        it("can have instantiations") {
+
+            parser expect {"""
+                package foo {
+                    class A {
+                        def m1() {
+                            val a = new java.util.ArrayList[String]
+                        }
+                    }
+                }
+
+            """} toBe {"""
+            
+                goog.provide('foo.A');
+                goog.require('java.util.ArrayList');
+                /** @constructor*/
+                foo.A = function() {var self = this;};
+                foo.A.prototype.m1 = function() {var self = this;
+                    var a = new java.util.ArrayList();
+                };
+
+            """}
+        }
+
+        it("can be identifiers") {
+
+            parser expect {"""
+                package foo {
+                    class A {
+                        def m1(y:String) {
+                            val a = y
+                        }
+                    }
+                }
+            """} toBe {"""
+                goog.provide('foo.A');
+                /** @constructor*/
+                foo.A = function() {var self = this;};
+                foo.A.prototype.m1 = function(y) {var self = this;
+                    var a = y;
+                };
+            """}
+        }
+
+        it("can be the return of a function call") {
+
+            parser expect {"""
+
+                package foo {
+                    class A {
+                        def m1() {
+                        }
+                        def m2() {
+                            var a = m1();
+                        }
+                    }
+                }
+
+            """} toBe {"""
+            
+                goog.provide('foo.A');
+                /** @constructor*/
+                foo.A = function() {var self = this;};
+                foo.A.prototype.m1 = function() {var self = this;};
+                foo.A.prototype.m2 = function() {var self = this;
+                    var a = self.m1();
+                };
+            """}
+        }
+
+        it("can be an expression") {
+
+            parser expect {"""
+
+                package foo {
+                    class A {
+                        def m1(x:Int) {
+                            var a = x + 5
+                            var b = x == 5
+                        }
+                    }
+                }
+            """} toBe {"""
+                goog.provide('foo.A');
+                /** @constructor*/
+                foo.A = function() {var self = this;};
+                foo.A.prototype.m1 = function(x) {var self = this;
+                    var a = (x + 5);
+                    var b = (x == 5);
+                };
+            """}
+        }
+
+        it("can be function literals") {
+
+            parser expect {"""
+
+                package foo {
+                    class A {
+                        def m1() {
+                            val a = (b:String) => { println("foo") }
+                        }
+                    }
+                }
+
+            """} toBe {"""
+                goog.provide('foo.A');
+                /** @constructor*/
+                foo.A = function() {var self = this;};
+                foo.A.prototype.m1 = function() {var self = this;
+                    var a = function(b) {console.log('foo');};
+                };
+            """}
+        }
+    }
+}
+
+// vim: set ts=4 sw=4 foldmethod=syntax et:
+
