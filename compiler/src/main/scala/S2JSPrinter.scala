@@ -10,6 +10,8 @@ import scala.xml.Utility
 import scala.tools.nsc.Global
 import scala.util.matching.Regex
 
+//import scala.tools.nsc.symtab.Flags._
+
 trait S2JSPrinter {
   
     val global:Global
@@ -70,12 +72,9 @@ trait S2JSPrinter {
     }
 
     def buildPackageLevelItem(t:Tree):String = t match {
-        case x @ ClassDef(_, _, _, _) => 
-            buildClass(x)
-        case x @ ModuleDef(_, _, Template(_, _, body)) => 
-            body.map(buildPackageLevelItemMember).mkString("\n")
-        case x @ PackageDef(pid, stats) =>
-            stats.map(buildPackageLevelItemMember).mkString("\n")
+        case x @ ClassDef(_, _, _, _) => if(x.symbol.isTrait) buildClass(x) else buildClass(x)
+        case x @ ModuleDef(_, _, Template(_, _, body)) => body.map(buildPackageLevelItemMember).mkString("\n")
+        case x @ PackageDef(pid, stats) => stats.map(buildPackageLevelItemMember).mkString("\n")
         case x =>  ""
     }
 
@@ -99,6 +98,17 @@ trait S2JSPrinter {
         val superClassName = t.impl.parents.map(_.symbol.fullName).headOption flatMap {
             x => if(x != "java.lang.Object") Some(x) else None
         }
+
+        val cosmicNames = List("java.lang.Object", "scala.ScalaObject", "scala.Any")
+
+        def isCosmicType(x:Tree):Boolean = cosmicNames.contains(x.symbol.fullName)
+        def isLocalMember(x:Symbol):Boolean = x.isLocal
+        def isCosmicMember(x:Symbol):Boolean = cosmicNames.contains(x.enclClass.fullName)
+
+        def isIgnoredMember(x:Symbol):Boolean = 
+            isCosmicMember(x) || 
+            x.isConstructor || 
+            x.hasFlag(ACCESSOR)
 
         val ctorDef = t.impl.body.filter {
             x => x.isInstanceOf[DefDef] && x.symbol.isPrimaryConstructor
@@ -138,6 +148,16 @@ trait S2JSPrinter {
 
         superClassName.foreach {
             x => l += "goog.inherits(%s, %s);".format(className, x)
+        }
+
+        val baseTypes = t.impl.parents filterNot { isCosmicType } filter { _.symbol.isTrait }
+
+        val mixinMembers = baseTypes map { 
+            t => t.tpe.members filterNot { isIgnoredMember } map { m => (m.owner.fullName, m.nameString) }
+        }
+
+        mixinMembers.flatten foreach {
+            x => l += "%s.prototype.%s = %s.prototype.%s;".format(className, x._2, x._1, x._2)
         }
 
         l ++= t.impl.body.map(buildPackageLevelItemMember)

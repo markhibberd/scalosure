@@ -7,6 +7,47 @@ class PackageSpecs extends PrinterFixtureSpec {
 
     describe("classes") {
 
+        it("can mixin traits") {
+
+            parser expect {"""
+
+            package pkg
+
+            trait T {
+                val f1 = "foo"
+                def m1() {}
+            }
+
+            class A
+
+            class B extends A with T
+
+            """} toBe {"""
+
+            goog.provide('pkg.T');
+            goog.provide('pkg.A');
+            goog.provide('pkg.B');
+
+            /** @constructor*/
+            pkg.T = function() {var self = this;};
+            pkg.T.prototype.f1 = 'foo';
+            pkg.T.prototype.m1 = function() {var self = this;};
+
+            /** @constructor*/
+            pkg.A = function() {var self = this;};
+
+            /** @constructor*/
+            pkg.B = function() {
+                var self = this;
+                pkg.A.call(self);
+            };
+            goog.inherits(pkg.B, pkg.A);
+            pkg.B.prototype.m1 = pkg.T.prototype.m1;
+            pkg.B.prototype.f1 = pkg.T.prototype.f1;
+
+            """}
+        }
+
         it("can have constructors arguments") {
 
             parser expect {"""

@@ -5,6 +5,14 @@ import org.scalatest.{ Spec, BeforeAndAfterAll }
 
 class TestDrivenSpecs extends PrinterFixtureSpec {
 
+    it("") {
+
+        parser expect {"""
+
+        """} toBe {"""
+
+        """}
+    }
 }
 
 // vim: set ts=4 sw=4 foldmethod=syntax et:
