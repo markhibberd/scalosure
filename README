@@ -1,0 +1,4 @@
+TODO:
+
+* I think it would be better to write individual types into their own files, much like bytecode class files.  This should solve order dependency issues within the resulting js file.  google closure should take care of calculated dependecny order during dev time and compile time
+

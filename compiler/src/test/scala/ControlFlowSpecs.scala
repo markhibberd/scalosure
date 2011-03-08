@@ -5,6 +5,31 @@ import org.scalatest.{ Spec, BeforeAndAfterAll }
 
 class ControlFlowSpecs extends PrinterFixtureSpec {
 
+    it("can have while loops") {
+
+        parser expect {"""
+            object a {
+                def m1() {
+                    var x = 0
+                    while(x < 10) {
+                        x = x + 1
+                        println(x)
+                    }
+                }
+            }
+        """} toBe {"""
+            goog.provide('a');
+            a.m1 = function() {
+                var self = this;
+                var x = 0;
+                while((x < 10)) {
+                    x = (x + 1);
+                    console.log(x);
+                };
+            };
+        """}
+    }
+
     describe("foreach") {
 
         it("delegates to closure foreach support") {
