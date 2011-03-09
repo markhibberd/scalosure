@@ -5,6 +5,28 @@ import org.scalatest.{ Spec, BeforeAndAfterAll }
 
 class StatementSpecs extends PrinterFixtureSpec {
 
+    it("support not operator") {
+
+        parser expect {"""
+
+        object o {
+            def m1() = {
+                val v1 = true
+                val v2 = !v1
+            }
+        }
+
+        """} toBe {"""
+
+        goog.provide('o');
+        o.m1 = function() {
+            var self = this;
+            var v1 = true;
+            var v2 = !v1;
+        };
+        """}
+    }
+
     it("ignore asinstanceof calls") {
         parser expect {"""
             object a {

@@ -7,7 +7,7 @@ import java.io.{File, FileWriter, BufferedWriter}
 
 class S2JSPlugin (val global:Global) extends Plugin {
 
-	val name = "s2js"
+	val name = "scalosure"
 	val description = "Scala-to-Javascript compiler plugin"
 	val runsAfter = List("refchecks")
 

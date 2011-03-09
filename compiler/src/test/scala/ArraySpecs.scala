@@ -7,6 +7,39 @@ class ArraySpecs extends PrinterFixtureSpec {
 
     describe("arrays") {
 
+        it("can be iterated using while statement") {
+
+            parser expect {"""
+
+            object o {
+                def m1() = {
+                    val xs = Array("one", "two", "three")
+                    var i = 0
+                    while(i < xs.length) {
+                        println(xs(i))
+                        i = i + 1
+                    }
+                }
+            }
+
+            """} toBe {"""
+
+            goog.provide('o');
+            goog.require('goog.array');
+
+            o.m1 = function() {
+                var self = this;
+                var xs = ['one','two','three'];
+                var i = 0;
+                while((i < xs.length)) {
+                    console.log(xs[i]);
+                    i = (i + 1);
+                };
+            };
+
+            """}
+        }
+
         it("can have strings") {
 
             parser expect {"""

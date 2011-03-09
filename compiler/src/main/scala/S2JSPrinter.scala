@@ -213,7 +213,12 @@ trait S2JSPrinter {
                 case y => true
             }
 
-            "%s(%s)".format(buildTree(fun), filteredArgs.map(buildTree).mkString(","))
+            val tmp = fun.symbol.owner.nameString match {
+                case "Array" => "%s[%s]"
+                case _ => "%s(%s)"
+            }
+
+            tmp.format(buildTree(fun), filteredArgs.map(buildTree).mkString(","))
 
         case x @ TypeApply(Select(q, n), args) if(n.toString == "asInstanceOf") => q.toString
 
@@ -225,6 +230,7 @@ trait S2JSPrinter {
                 x.symbol.nameString, 
                 rhs match {
                     case y @ Match(_, _) => buildSwitch(y, true)
+                    case y @ Select(q, n) if(n.toString == "unary_$bang") => "!"+buildTree(q)
                     case y => buildTree(y)
                 })
 
@@ -260,7 +266,7 @@ trait S2JSPrinter {
 
         case x @ Select(qualifier, name) => qualifier match {
             case y @ New(tt) => "new " + tt.tpe.baseClasses.head.fullName
-            case y @ Ident(_) if(name.toString == "apply") => if(y.symbol.isLocal) y.symbol.nameString else y.symbol.fullName
+            case y @ Ident(_) if(name.toString == "apply") => if(y.symbol.isLocal) y.symbol.nameString else y.symbol.fullName   
             case y @ Ident(_) if(y.name.toString == "browser") => name.toString
             case y @ Ident(_) => if(y.symbol.isLocal) y.symbol.nameString+"."+name.toString else y.symbol.fullName+"."+name.toString
             case y @ This(_) if(x.symbol.owner.isPackageObjectClass) => y.symbol.owner.fullName+"."+name

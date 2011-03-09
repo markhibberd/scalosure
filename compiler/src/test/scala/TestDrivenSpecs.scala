@@ -5,28 +5,25 @@ import org.scalatest.{ Spec, BeforeAndAfterAll }
 
 class TestDrivenSpecs extends PrinterFixtureSpec {
 
-    it("semicolons") {
+    it("support not operator") {
 
         parser expect {"""
 
-        class C {
-            def m1() = this
-            def m2() = this
-            def m3() {
-                println("m3")
-            }
-        }
-
         object o {
             def m1() = {
-                val c = new C
-                c.m1().m2().m3()
-                println("foo")
+                val v1 = true
+                val v2 = !v1
             }
         }
 
-        """} toDebug {"""
-        
+        """} toBe {"""
+
+        goog.provide('o');
+        o.m1 = function() {
+            var self = this;
+            var v1 = true;
+            var v2 = !v1;
+        };
         """}
     }
 
