@@ -10,9 +10,13 @@ class StatementSpecs extends PrinterFixtureSpec {
         parser expect {"""
 
         object o {
-            def m1() = {
+            def m1() = true
+            def m2() = {
                 val v1 = true
                 val v2 = !v1
+                if(!m1) {
+                    println("not")
+                }
             }
         }
 
@@ -21,8 +25,13 @@ class StatementSpecs extends PrinterFixtureSpec {
         goog.provide('o');
         o.m1 = function() {
             var self = this;
+            return true;
+        };
+        o.m2 = function() {
+            var self = this;
             var v1 = true;
             var v2 = !v1;
+            !o.m1() ? function() { console.log('not'); }() : function() { ; }();
         };
         """}
     }

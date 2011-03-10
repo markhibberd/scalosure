@@ -33,17 +33,14 @@ class S2JSPluginSpec extends FixtureSpec with ConfigMapFixture with BeforeAndAft
         val reporter = new ConsoleReporter(settings)
 
         val files = List(
-            getResource("p1/a/package.scala"),
-            getResource("p1/a/Whatup.scala"),
-            getResource("p1/b/package.scala"),
-            getResource("sample.scala"),
-            getResource("support.scala"))
+            getResource("p2/a/anobject.scala"),
+            getResource("p2/b/anotherobject.scala"))
 
         val command = new CompilerCommand(files, settings) {
             override val cmdName = "runs2js"
         }
 
-        val options = List("output:"+configMap("output"), "input:p1")
+        val options = List("output:"+configMap("output"), "input:p2")
 
         val runner = new Global(settings, reporter) {
 
