@@ -18,5 +18,5 @@ This is a fork/rewrite of another project trying to achieve a similar thing [S2J
 
 # Getting started (Coming soon)
 
-Since the project in incomplete in it's current state you are on your own.  * Clone the repository
+Since the project in incomplete in it's current state you are on your own.
 
