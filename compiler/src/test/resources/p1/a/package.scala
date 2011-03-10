@@ -1,9 +1,9 @@
 package p1
 
 package object a {
-  def foo() {}
+    def foo() {}
 }
 
 class Foo {
-  def bar(){}
+    def bar(){}
 }

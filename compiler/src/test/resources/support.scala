@@ -1,3 +1,5 @@
 package bar
 
-class Foo
+object foo {
+
+}
