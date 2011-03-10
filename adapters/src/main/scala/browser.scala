@@ -18,6 +18,9 @@ class Window {
 	def focus () {}
 	
 	def setTimeout (fn:()=>Unit, milliseconds:Int) {}
+
+    val sessionStorage:Storage = null
+    val localStorage:Storage = null
 }
 
 object window extends Window {}
@@ -58,4 +61,13 @@ object document extends Document
 class Range {
 	def insertNode (n:Node) {}
 	def surroundContents (n:Node) {}
+}
+
+class Storage {
+    val length:Long = 0
+    def key(index:Long):String = ""
+    def getItem(key:String):String = null
+    def setItem(key:String, value:String) {}
+    def removeItem(key:String) {}
+    def clear() {}
 }
