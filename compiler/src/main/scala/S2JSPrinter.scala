@@ -19,9 +19,9 @@ trait S2JSPrinter {
     import global._
 	import definitions._
 
-    def debug(name:String, thing:Any) = {
-        print(name+" ")
-        println(thing.toString)
+    def debug(name:String, thing:Any) {
+        //print(name+" ")
+        //println(thing.toString)
     }
 
     case class RichTree(t:Tree) {
@@ -206,7 +206,13 @@ trait S2JSPrinter {
         case x @ Apply(Select(y @ Super(_, _), name), args) =>
             "%s.superClass_.%s.call(%s)".format(y.symbol.fullName, name.toString, (List("self") ++ args.map(buildTree)).mkString(","))
 
+        case x @ Apply(fun @ TypeApply(Select(q, n), _), args) if(fun.symbol.owner.nameString == "IterableLike") =>
+            debug("f:6", q.nameString)
+            "for(var _key_ in %1$s) {(%2$s)({_1:_key_, _2:%1$s[_key_]});}".format(buildTree(q), args.map(buildTree).mkString)
+
         case x @ Apply(fun, args) =>
+
+            debug("f:2", fun.symbol.nameString)
 
             val filteredArgs = args.filter {
                 case y @ (TypeApply(_,_) | Select(_,_)) => !y.symbol.hasFlag(DEFAULTPARAM)
@@ -214,15 +220,17 @@ trait S2JSPrinter {
             }
 
             val tmp = fun.symbol.owner.nameString match {
-                case "Array" => "%s[%s]"
+                case "Array" | "MapLike" => "%s[%s]"
                 case _ => "%s(%s)"
             }
 
             tmp.format(buildTree(fun), filteredArgs.map(buildTree).mkString(","))
 
-        case x @ TypeApply(Select(q, n), args) if(n.toString == "asInstanceOf") => q.toString
+        case x @ TypeApply(Select(q, n), args) if(n.toString == "asInstanceOf") =>
+            debug("f:4", q); 
+            buildTree(q)
 
-        case x @ TypeApply(fun, args) => buildTree(fun)
+        case x @ TypeApply(fun, args) => debug("f:3", x); buildTree(fun)
 
         case x @ ValDef(mods, name, tpt, rhs) if(x.symbol.isLocal) =>
 
@@ -234,7 +242,7 @@ trait S2JSPrinter {
                     case y => buildTree(y)
                 })
 
-        case x @ Ident(name) => name.toString
+        case x @ Ident(name) =>  name.toString
             
         case x @ If(cond, thenp, elsep) =>
 
@@ -264,16 +272,20 @@ trait S2JSPrinter {
 
         case x @ Select(qualifier, name) if(name.toString == "package") => buildTree(qualifier)
 
-        case x @ Select(qualifier, name) => qualifier match {
+        case x @ Select(qualifier, name) => debug("f:1", x); qualifier match {
             case y @ New(tt) => "new " + tt.tpe.baseClasses.head.fullName
-            case y @ Ident(_) if(name.toString == "apply") => if(y.symbol.isLocal) y.symbol.nameString else y.symbol.fullName   
+            case y @ Ident(_) if(name.toString == "apply") => debug("f:5a", y); if(y.symbol.isLocal) y.symbol.nameString else y.symbol.fullName   
             case y @ Ident(_) if(y.name.toString == "browser") => name.toString
-            case y @ Ident(_) => if(y.symbol.isLocal) y.symbol.nameString+"."+name.toString else y.symbol.fullName+"."+name.toString
-            case y @ This(_) if(x.symbol.owner.isPackageObjectClass) => y.symbol.owner.fullName+"."+name
-            case y @ This(_) if(x.symbol.owner.isModuleClass) => y.symbol.fullName+"."+name
-            case y @ This(_) => "self."+name
+            //case y @ Ident(_) if(name.toString == "_1") => "_key_"
+            //case y @ Ident(_) if(name.toString == "_2") => "%s[_key_]".format(y.toString)
+            case y @ Ident(_) => debug("f:5b", x); if(y.symbol.isLocal) y.symbol.nameString+"."+name.toString else y.symbol.fullName+"."+name.toString
+            case y @ This(_) if(x.symbol.owner.isPackageObjectClass) => debug("f:5c", y); y.symbol.owner.fullName+"."+name
+            case y @ This(_) if(x.symbol.owner.isModuleClass) => debug("f:5d", y); y.symbol.fullName+"."+name
+            case y @ This(_) => debug("f:5e", y); "self."+name
             case y @ Select(q, n) if(n.toString == "Predef" && name.toString == "println") => "console.log"
-            case y => buildTree(y) + "." +name
+            case y if(name.toString == "unary_$bang") => "!"+buildTree(y)
+            case y if(name.toString == "apply") => buildTree(y)
+            case y => debug("f:5f", name); buildTree(y)+"."+name
         }
 
         case x @ Block(stats, expr) => buildBlock(x)
