@@ -1,9 +1,3 @@
-package p1
+package p1.a
 
-package object a {
-    def foo() {}
-}
-
-class Foo {
-    def bar(){}
-}
+class Foo

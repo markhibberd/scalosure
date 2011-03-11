@@ -45,7 +45,9 @@ class S2JSPlugin (val global:Global) extends Plugin {
 
             override def apply(unit:CompilationUnit) = {
 
-                if(unit.body.symbol.fullName.startsWith(input)) {
+                def needsProcessing(sym:Symbol):Boolean = input.split(",") exists { sym.fullName.startsWith(_) }
+
+                if(needsProcessing(unit.body.symbol)) {
 
                     val path = unit.body.symbol.fullName.replace('.', '/')
                     val fullPath = unit.source.file.path
