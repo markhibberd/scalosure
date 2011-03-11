@@ -1,5 +1,0 @@
-package bar
-
-object foo {
-
-}
