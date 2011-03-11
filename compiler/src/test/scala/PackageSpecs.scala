@@ -7,6 +7,39 @@ class PackageSpecs extends PrinterFixtureSpec {
 
     describe("classes") {
 
+        it("can be case classes") {
+
+            parser expect {"""
+
+            case class A(name:String)
+
+            object o {
+                def m1() {
+                    val a = A("name")
+                }
+            }
+
+            """} toBe {"""
+
+            goog.provide('A');
+            goog.provide('o');
+
+            /** @constructor*/
+            A = function(name) {
+                var self = this;
+                self.name = name;
+            };
+            
+            A.prototype.name = null;
+
+            o.m1 = function() {
+                var self = this;
+                var a = new A('name');
+            };
+
+            """}
+        }
+
         it("can mixin traits") {
 
             parser expect {"""

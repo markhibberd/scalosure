@@ -9,27 +9,30 @@ class TestDrivenSpecs extends PrinterFixtureSpec {
 
         parser expect {"""
 
-        object o {
-            var xs = Map("1"->"foo", "2"->"bar")
+        case class A(name:String)
 
+        object o {
             def m1() {
-                xs foreach {
-                    x => println(x._1+"="+x._2)
-                }
+                val a = A("name")
             }
         }
 
         """} toBe {"""
 
+        goog.provide('A');
         goog.provide('o');
-        o.xs = {'1':'foo','2':'bar'};
+
+        /** @constructor*/
+        A = function(name) {
+            var self = this;
+            self.name = name;
+        };
+        
+        A.prototype.name = null;
+
         o.m1 = function() {
             var self = this;
-            for(var _key_ in o.xs) {
-                (function(x) {
-                    console.log(((x._1 + '=') + x._2));
-                })({_1:_key_, _2:o.xs[_key_]});
-            };
+            var a = new A('name');
         };
 
         """}

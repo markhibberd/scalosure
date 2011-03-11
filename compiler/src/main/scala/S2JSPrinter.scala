@@ -32,7 +32,7 @@ trait S2JSPrinter {
 
     implicit def tree2richtree(tree:Tree):RichTree = RichTree(tree)
 
-    val cosmicNames = List("java.lang.Object", "scala.ScalaObject", "scala.Any")
+    val cosmicNames = List("java.lang.Object", "scala.ScalaObject", "scala.Any", "scala.Product")
 
     def isCosmicType(x:Tree):Boolean = cosmicNames.contains(x.symbol.fullName)
     def isLocalMember(x:Symbol):Boolean = x.isLocal
@@ -78,7 +78,7 @@ trait S2JSPrinter {
 
     def buildPackageLevelItem(t:Tree):String = t match {
         case x @ ClassDef(_, _, _, _) => buildClass(x)
-        case x @ ModuleDef(_, _, Template(_, _, body)) => body.map(buildPackageLevelItemMember).mkString("\n")
+        case x @ ModuleDef(_, _, Template(_, _, body)) if(!x.symbol.hasFlag(SYNTHETIC)) => debug("f:8", x); body.map(buildPackageLevelItemMember).mkString("\n")
         case x @ PackageDef(_, stats) => stats.map(buildPackageLevelItemMember).mkString("\n")
         case x =>  ""
     }
@@ -94,6 +94,8 @@ trait S2JSPrinter {
     }
 
     def buildClass(t:ClassDef):String = {
+
+        debug("f:7", t)
 
         val lb = new ListBuffer[String]
 
@@ -159,7 +161,17 @@ trait S2JSPrinter {
             x => lb += "%s.prototype.%s = %s.prototype.%s;".format(className, x._2, x._1, x._2)
         }
 
-        lb ++= t.impl.body.map(buildPackageLevelItemMember)
+        val caseMemberNames = List("productPrefix", "productArity", "productElement", "equals", "toString", "canEqual", "hashCode", "copy")
+
+        def isCaseMember(x:Tree):Boolean = caseMemberNames.exists(x.symbol.fullName.endsWith(_))
+
+        def isSynthetic(x:Tree):Boolean = x.symbol.isSynthetic
+
+        if(t.symbol.hasFlag(CASE)) {
+            lb ++= t.impl.body filterNot { isCaseMember } map { buildPackageLevelItemMember }
+        } else {
+            lb ++= t.impl.body.map(buildPackageLevelItemMember)
+        }
 
         return lb.mkString("\n")
     }
@@ -212,7 +224,7 @@ trait S2JSPrinter {
 
         case x @ Apply(fun, args) =>
 
-            debug("f:2", fun.symbol.nameString)
+            debug("f:2", fun.symbol.owner)
 
             val filteredArgs = args.filter {
                 case y @ (TypeApply(_,_) | Select(_,_)) => !y.symbol.hasFlag(DEFAULTPARAM)
@@ -274,7 +286,9 @@ trait S2JSPrinter {
 
         case x @ Select(qualifier, name) => debug("f:1", x); qualifier match {
             case y @ New(tt) => "new " + tt.tpe.baseClasses.head.fullName
-            case y @ Ident(_) if(name.toString == "apply") => debug("f:5a", y); if(y.symbol.isLocal) y.symbol.nameString else y.symbol.fullName   
+            case y @ Ident(_) if(name.toString == "apply" && x.symbol.owner.isSynthetic) => 
+                "new " + (if(y.symbol.isLocal) y.symbol.nameString else y.symbol.fullName)
+            case y @ Ident(_) if(name.toString == "apply") => debug("f:5a", x.symbol.owner.isSynthetic); if(y.symbol.isLocal) y.symbol.nameString else y.symbol.fullName   
             case y @ Ident(_) if(y.name.toString == "browser") => name.toString
             //case y @ Ident(_) if(name.toString == "_1") => "_key_"
             //case y @ Ident(_) if(name.toString == "_2") => "%s[_key_]".format(y.toString)
