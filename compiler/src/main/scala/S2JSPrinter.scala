@@ -224,19 +224,32 @@ trait S2JSPrinter {
 
         case x @ Apply(fun, args) =>
 
-            debug("f:2", fun.symbol.owner)
+            debug("f:2a", fun)
+            debug("f:2b", x.symbol.tpe)
 
-            val filteredArgs = args.filter {
+            def filterArgs(xs:List[Tree]) = xs.filter {
                 case y @ (TypeApply(_,_) | Select(_,_)) => !y.symbol.hasFlag(DEFAULTPARAM)
                 case y => true
             }
+
+            val firstArgs = fun match {
+                case Apply(_, xs) => filterArgs(xs)
+                case _ => Nil
+            }
+
+            val filteredArgs = filterArgs(args)
 
             val tmp = fun.symbol.owner.nameString match {
                 case "Array" | "MapLike" => "%s[%s]"
                 case _ => "%s(%s)"
             }
 
-            tmp.format(buildTree(fun), filteredArgs.map(buildTree).mkString(","))
+            def buildApply(f:Tree, xs:List[Tree]) = tmp.format(buildTree(f), xs.map(buildTree).mkString(","))
+
+            fun match {
+                case Apply(f, xs) => buildApply(f, filterArgs(xs) ++ filteredArgs)
+                case _ => buildApply(fun, filteredArgs)
+            }
 
         case x @ TypeApply(Select(q, n), args) if(n.toString == "asInstanceOf") =>
             debug("f:4", q); 

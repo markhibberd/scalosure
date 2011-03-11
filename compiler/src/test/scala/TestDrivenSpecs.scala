@@ -5,48 +5,36 @@ import org.scalatest.{ Spec, BeforeAndAfterAll }
 
 class TestDrivenSpecs extends PrinterFixtureSpec {
 
-    it("implicit conversions") {
+    it("can have multiple arguments lists") {
 
         parser expect {"""
 
-        class B(name:String) {
-            def doit() {}
-        }
+        object o1 {
 
-        object o {
+            def m1(name:String)(fn:(String) => Unit) {
+                fn(name)
+            }
 
-            implicit def string2b(a:String):B = new B(a)
+            def m3() {
 
-            def m1() {
-                val a = "foo"
-                a.doit()
+                m1("foo") {
+                    x => println(x)
+                }
             }
         }
 
-        """} toBe {"""
+        """} toDebug {"""
 
-        goog.provide('B');
-        goog.provide('o');
-        
-        /** @constructor*/B = function(name) {
+        goog.provide('o1');
+
+        o1.m1 = function(name,fn) {
             var self = this;
-            self.name = name;
+            fn(name);
         };
 
-        B.prototype.name = null;
-        B.prototype.doit = function() {
+        o1.m3 = function() {
             var self = this;
-        };
-        
-        o.string2b = function(a) {
-            var self = this;
-            return new B(a);
-        };
-        
-        o.m1 = function() {
-            var self = this;
-            var a = 'foo';
-            o.string2b(a).doit();
+            o1.m1('foo',function(x) {console.log(x);});
         };
 
         """}
