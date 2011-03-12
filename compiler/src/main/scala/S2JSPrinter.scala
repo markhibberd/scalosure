@@ -20,8 +20,8 @@ trait S2JSPrinter {
 	import definitions._
 
     def debug(name:String, thing:Any) {
-        //print(name+" ")
-        //println(thing.toString)
+        print(name+" ")
+        println(thing.toString)
     }
 
     case class RichTree(t:Tree) {
@@ -32,7 +32,7 @@ trait S2JSPrinter {
 
     implicit def tree2richtree(tree:Tree):RichTree = RichTree(tree)
 
-    val cosmicNames = List("java.lang.Object", "scala.ScalaObject", "scala.Any", "scala.Product")
+    val cosmicNames = List("java.lang.Object", "scala.ScalaObject", "scala.Any", "scala.AnyRef", "scala.Product")
 
     def isCosmicType(x:Tree):Boolean = cosmicNames.contains(x.symbol.fullName)
     def isLocalMember(x:Symbol):Boolean = x.isLocal
@@ -78,7 +78,7 @@ trait S2JSPrinter {
 
     def buildPackageLevelItem(t:Tree):String = t match {
         case x @ ClassDef(_, _, _, _) => buildClass(x)
-        case x @ ModuleDef(_, _, Template(_, _, body)) if(!x.symbol.hasFlag(SYNTHETIC)) => debug("f:8", x); body.map(buildPackageLevelItemMember).mkString("\n")
+        case x @ ModuleDef(_, _, Template(_, _, body)) if(!x.symbol.hasFlag(SYNTHETIC)) => body.map(buildPackageLevelItemMember).mkString("\n")
         case x @ PackageDef(_, stats) => stats.map(buildPackageLevelItemMember).mkString("\n")
         case x =>  ""
     }
@@ -95,52 +95,55 @@ trait S2JSPrinter {
 
     def buildClass(t:ClassDef):String = {
 
-        debug("f:7", t)
-
         val lb = new ListBuffer[String]
 
         val className = t.symbol.fullName
 
-        // only support single inheritence and ignore java.lang.Object
-        val superClassName = t.impl.parents.map(_.symbol.fullName).headOption flatMap {
-            x => if(x != "java.lang.Object") Some(x) else None
-        }
+        val superClassName = t.impl.parents filterNot { isCosmicType } headOption
 
-        val ctorDef = t.impl.body.filter {
-            x => x.isInstanceOf[DefDef] && x.symbol.isPrimaryConstructor
-        }.head.asInstanceOf[DefDef]
+        if(t.symbol.isTrait) {
 
-        val ctorArgs = ctorDef.vparamss.flatten.map(_.symbol.nameString)
+            lb += "/** @constructor*/"
+            lb += "%s = function() {};\n".format(className)
 
-        lb += "/** @constructor*/"
-        lb += "%s = function(%s) {".format(className, ctorArgs.mkString(","))
+        } else {
 
-        lb += "var self = this;"
+            val ctorDef = t.impl.body.filter {
+                x => x.isInstanceOf[DefDef] && x.symbol.isPrimaryConstructor
+            }.head.asInstanceOf[DefDef]
 
-        // superclass construction and field initialization
-        t.impl.foreach {
-            case x @ Apply(Select(Super(qual, mix), name), args) if(name.toString == "<init>") => superClassName match {
-                case Some(y) => 
-                    val filteredArgs = args.filter(!_.toString.contains("$default$")).map(_.toString)
-                    lb += "%s.call(%s);".format(y, (List("self") ++ filteredArgs).mkString(","))
-                    ctorArgs.diff(filteredArgs).foreach {
-                        y => lb += "self.%1$s = %1$s;".format(y)
-                    }
-                case None => 
-                    ctorArgs.foreach {
-                        y => lb += "self.%1$s = %1$s;".format(y)
-                    }
+            val ctorArgs = ctorDef.vparamss.flatten.map(_.symbol.nameString)
+
+            lb += "/** @constructor*/"
+            lb += "%s = function(%s) {".format(className, ctorArgs.mkString(","))
+
+            lb += "var self = this;"
+
+            // superclass construction and field initialization
+            t.impl.foreach {
+                case x @ Apply(Select(Super(qual, mix), name), args) if(name.toString == "<init>") => superClassName match {
+                    case Some(y) => 
+                        val filteredArgs = args.filter(!_.toString.contains("$default$")).map(_.toString)
+                        lb += "%s.call(%s);".format(y, (List("self") ++ filteredArgs).mkString(","))
+                        ctorArgs.diff(filteredArgs).foreach {
+                            y => lb += "self.%1$s = %1$s;".format(y)
+                        }
+                    case None => 
+                        ctorArgs.foreach {
+                            y => lb += "self.%1$s = %1$s;".format(y)
+                        }
+                }
+                case x => 
             }
-            case x => 
-        }
 
-        t.impl.body foreach {
-            case x @ Apply(fun, args) => lb += buildTree(x)+";"
-            case x @ ClassDef(_, _, _, _) => lb += buildClass(x)
-            case x =>
-        }
+            t.impl.body foreach {
+                case x @ Apply(fun, args) => lb += buildTree(x)+";"
+                case x @ ClassDef(_, _, _, _) => lb += buildClass(x)
+                case x =>
+            }
 
-        lb += "};"
+            lb += "};"
+        }
 
         superClassName.foreach {
             x => lb += "goog.inherits(%s, %s);".format(className, x)
@@ -154,7 +157,7 @@ trait S2JSPrinter {
             x.hasFlag(ACCESSOR)
 
         val traitMembers = traits map { 
-            x => x.tpe.members filterNot { isIgnoredMember } map { m => (m.owner.fullName, m.nameString) }
+            x => x.tpe.members filterNot { isIgnoredMember } map { m => (m.owner.fullName, buildName(m)) }
         }
 
         traitMembers.flatten foreach {
@@ -191,6 +194,9 @@ trait S2JSPrinter {
         case x @ Apply(TypeApply(y @ Select(Select(_, n), _), _), args) if(n.toString == "Array") => 
             args.map(buildObjectLiteral).mkString("[",",","]")
 
+        case x @ Apply(TypeApply(y @ Select(Select(_, n), _), _), args) if(n.toString == "HashMap") => 
+            "new %s(%s)".format(n, args.map(buildObjectLiteral).mkString("{",",","}"))
+
         case x @ Apply(TypeApply(y @ Select(Select(_, n), _), _), args) if(n.toString == "Map") => 
             args.map(buildObjectLiteral).mkString("{",",","}")
 
@@ -219,13 +225,27 @@ trait S2JSPrinter {
             "%s.superClass_.%s.call(%s)".format(y.symbol.fullName, name.toString, (List("self") ++ args.map(buildTree)).mkString(","))
 
         case x @ Apply(fun @ TypeApply(Select(q, n), _), args) if(fun.symbol.owner.nameString == "IterableLike") =>
-            debug("f:6", q.nameString)
             "for(var _key_ in %1$s) {(%2$s)({_1:_key_, _2:%1$s[_key_]});}".format(buildTree(q), args.map(buildTree).mkString)
+
+        case x @ Apply(TypeApply(f, _), args) if(f.symbol.owner.nameString == "ArrowAssoc") => 
+            "{%s}".format(buildObjectLiteral(x))
 
         case x @ Apply(fun, args) =>
 
-            debug("f:2a", fun)
-            debug("f:2b", x.symbol.tpe)
+            debug("=========================", "")
+            debug("f:2a", x)
+            debug("f:2b", fun)
+
+            def isArrowAssoc(t:Tree):Boolean = t match {
+                case y @ Apply(TypeApply(f, yargs), _) if(f.symbol.owner.nameString == "ArrowAssoc") => true
+                case _ => false
+            }
+
+            val arrowArgs = args filter { isArrowAssoc } map { 
+                case y @ Apply(TypeApply(Select(q, n), iargs), yargs) => buildObjectLiteral(y)
+            } mkString("{",",","}")
+
+            debug("f:2c", args)
 
             def filterArgs(xs:List[Tree]) = xs.filter {
                 case y @ (TypeApply(_,_) | Select(_,_)) => !y.symbol.hasFlag(DEFAULTPARAM)
@@ -251,11 +271,9 @@ trait S2JSPrinter {
                 case _ => buildApply(fun, filteredArgs)
             }
 
-        case x @ TypeApply(Select(q, n), args) if(n.toString == "asInstanceOf") =>
-            debug("f:4", q); 
-            buildTree(q)
+        case x @ TypeApply(Select(q, n), args) if(n.toString == "asInstanceOf") => buildTree(q)
 
-        case x @ TypeApply(fun, args) => debug("f:3", x); buildTree(fun)
+        case x @ TypeApply(fun, args) => buildTree(fun)
 
         case x @ ValDef(mods, name, tpt, rhs) if(x.symbol.isLocal) =>
 
@@ -297,25 +315,26 @@ trait S2JSPrinter {
 
         case x @ Select(qualifier, name) if(name.toString == "package") => buildTree(qualifier)
 
-        case x @ Select(qualifier, name) => debug("f:1", x); qualifier match {
+        case x @ Select(qualifier, name) => qualifier match {
             case y @ New(tt) => "new " + tt.tpe.baseClasses.head.fullName
             case y @ Ident(_) if(name.toString == "apply" && x.symbol.owner.isSynthetic) => 
                 "new " + (if(y.symbol.isLocal) y.symbol.nameString else y.symbol.fullName)
-            case y @ Ident(_) if(name.toString == "apply") => debug("f:5a", x.symbol.owner.isSynthetic); if(y.symbol.isLocal) y.symbol.nameString else y.symbol.fullName   
+            case y @ Ident(_) if(name.toString == "apply") => if(y.symbol.isLocal) y.symbol.nameString else y.symbol.fullName   
             case y @ Ident(_) if(y.name.toString == "browser") => name.toString
             //case y @ Ident(_) if(name.toString == "_1") => "_key_"
             //case y @ Ident(_) if(name.toString == "_2") => "%s[_key_]".format(y.toString)
-            case y @ Ident(_) => debug("f:5b", x); if(y.symbol.isLocal) y.symbol.nameString+"."+name.toString else y.symbol.fullName+"."+name.toString
-            case y @ This(_) if(x.symbol.owner.isPackageObjectClass) => debug("f:5c", y); y.symbol.owner.fullName+"."+name
-            case y @ This(_) if(x.symbol.owner.isModuleClass) => debug("f:5d", y); y.symbol.fullName+"."+name
-            case y @ This(_) => debug("f:5e", y); "self."+name
+            case y @ Ident(_) => if(y.symbol.isLocal) y.symbol.nameString+"."+name.toString else y.symbol.fullName+"."+name.toString
+            case y @ This(_) if(x.symbol.owner.isPackageObjectClass) => y.symbol.owner.fullName+"."+name
+            case y @ This(_) if(x.symbol.owner.isModuleClass) => y.symbol.fullName+"."+name
+            case y @ This(_) => "self."+name
             case y @ Select(q, n) if(n.toString == "Predef" && name.toString == "println") => "console.log"
             case y if(name.toString == "$colon$plus" && y.symbol.nameString == "genericArrayOps") => 
-                debug("f:5h", y)
                 "%s.push".format(y.asInstanceOf[ApplyImplicitView].args.head)
             case y if(name.toString == "unary_$bang") => "!"+buildTree(y)
             case y if(name.toString == "apply") => buildTree(y)
-            case y => debug("f:5f", name); buildTree(y)+"."+name
+            case y if(name.toString == "any2ArrowAssoc") => 
+                buildTree(y)
+            case y => buildTree(y)+"."+name
         }
 
         case x @ Block(stats, expr) => buildBlock(x)
@@ -490,15 +509,20 @@ trait S2JSPrinter {
         val rhs = buildTree(tree.rhs)
 
         if(tree.symbol.owner.isModuleClass) {
-            "%s.%s = %s;".format(className, name, rhs)
+            "%s.%s = %s;".format(className, buildName(tree.symbol), rhs)
         } else {
-            "%s.prototype.%s = %s;".format(className, name, rhs)
+            "%s.prototype.%s = %s;".format(className, buildName(tree.symbol), rhs)
         }
     }
 
     def trimNamespace(ns:String) = if(ns.endsWith(".package")) {
         ns.stripSuffix(".package")
     } else ns
+
+    def buildName(s:Symbol):String = s.nameString match {
+        case "+=" => "$plus$eq"
+        case x => x
+    }
 
     def buildMethod(ts:DefDef, inPackageObject:Boolean=false):String = { 
 
@@ -509,9 +533,9 @@ trait S2JSPrinter {
         val l = new ListBuffer[String]
 
         if(ts.symbol.owner.isModuleClass) {
-            l += "%s.%s = function(%s) {".format(ns, name, args)
+            l += "%s.%s = function(%s) {".format(ns, buildName(ts.symbol), args)
         } else {
-            l += "%s.prototype.%s = function(%s) {".format(ns, name, args)
+            l += "%s.prototype.%s = function(%s) {".format(ns, buildName(ts.symbol), args)
         }
 
         // every method gets a self refrence
