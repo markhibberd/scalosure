@@ -45,7 +45,7 @@ class S2JSPlugin (val global:Global) extends Plugin {
 
             override def apply(unit:CompilationUnit) = {
 
-                def needsProcessing(sym:Symbol):Boolean = input.split(",") exists { sym.fullName.startsWith(_) }
+                def needsProcessing(sym:Symbol):Boolean = input.split(";") exists { sym.fullName.startsWith(_) }
 
                 if(needsProcessing(unit.body.symbol)) {
 

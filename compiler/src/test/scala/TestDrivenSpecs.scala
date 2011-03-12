@@ -9,6 +9,15 @@ class TestDrivenSpecs extends PrinterFixtureSpec {
 
         parser expect {"""
 
+        import scala.collection.mutable.HashMap
+
+        object o1 {
+            def m1() {
+
+                val m = Map("one"->"foo")
+            }
+        }
+
         """} toDebug {"""
 
         """}

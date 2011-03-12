@@ -310,6 +310,9 @@ trait S2JSPrinter {
             case y @ This(_) if(x.symbol.owner.isModuleClass) => debug("f:5d", y); y.symbol.fullName+"."+name
             case y @ This(_) => debug("f:5e", y); "self."+name
             case y @ Select(q, n) if(n.toString == "Predef" && name.toString == "println") => "console.log"
+            case y if(name.toString == "$colon$plus" && y.symbol.nameString == "genericArrayOps") => 
+                debug("f:5h", y)
+                "%s.push".format(y.asInstanceOf[ApplyImplicitView].args.head)
             case y if(name.toString == "unary_$bang") => "!"+buildTree(y)
             case y if(name.toString == "apply") => buildTree(y)
             case y => debug("f:5f", name); buildTree(y)+"."+name
