@@ -5,370 +5,368 @@ import org.scalatest.{ Spec, BeforeAndAfterAll }
 
 class PackageSpecs extends PrinterFixtureSpec {
 
-    describe("classes") {
+  describe("classes") {
 
-        it("can be case classes") {
+    it("can be case classes") {
 
-            parser expect {"""
+      parser expect {"""
 
-            case class A(name:String)
+      case class A(name:String)
 
-            object o {
-                def m1() {
-                    val a = A("name")
-                }
-            }
-
-            """} toBe {"""
-
-            goog.provide('A');
-            goog.provide('o');
-
-            /** @constructor*/
-            A = function(name) {
-                var self = this;
-                self.name = name;
-            };
-            
-            A.prototype.name = null;
-
-            o.m1 = function() {
-                var self = this;
-                var a = new A('name');
-            };
-
-            """}
+      object o {
+        def m1() {
+          val a = A("name")
         }
+      }
 
-        it("can mixin traits") {
+      """} toBe {"""
 
-            parser expect {"""
+      goog.provide('A');
+      goog.provide('o');
 
-            package pkg
+      /** @constructor*/
+      A = function(name) {
+        var self = this;
+        self.name = name;
+      };
 
-            trait T {
-                val f1 = "foo"
-                def m1() {}
-            }
+      A.prototype.name = null;
 
-            class A
+      o.m1 = function() {
+        var self = this;
+        var a = new A('name');
+      };
 
-            class B extends A with T
-
-            """} toBe {"""
-
-            goog.provide('pkg.T');
-            goog.provide('pkg.A');
-            goog.provide('pkg.B');
-
-            /** @constructor*/
-            pkg.T = function() {var self = this;};
-            pkg.T.prototype.f1 = 'foo';
-            pkg.T.prototype.m1 = function() {var self = this;};
-
-            /** @constructor*/
-            pkg.A = function() {var self = this;};
-
-            /** @constructor*/
-            pkg.B = function() {
-                var self = this;
-                pkg.A.call(self);
-            };
-            goog.inherits(pkg.B, pkg.A);
-            pkg.B.prototype.m1 = pkg.T.prototype.m1;
-            pkg.B.prototype.f1 = pkg.T.prototype.f1;
-
-            """}
-        }
-
-        it("can have constructors arguments") {
-
-            parser expect {"""
-
-                package $pkg {
-                    class A()
-                    class B(x:String)
-                    class C(x:String, y:String)
-                }
-
-            """} toBe {"""
-
-                goog.provide('$pkg.A');
-                goog.provide('$pkg.B');
-                goog.provide('$pkg.C');
-
-                /** @constructor*/
-                $pkg.A = function() {
-                    var self = this;
-                };
-
-                /** @constructor*/
-                $pkg.B = function(x) {
-                    var self = this;
-                    self.x = x;
-                };
-                $pkg.B.prototype.x = null;
-
-                /** @constructor*/
-                $pkg.C = function(x,y) {
-                    var self = this;
-                    self.x = x;
-                    self.y = y;
-                };
-                $pkg.C.prototype.x = null;
-                $pkg.C.prototype.y = null;
-
-            """}
-        }
-
-        it("can have methods") {
-
-            parser expect {"""
-
-                package $pkg {
-                    class A {
-                        def m1() {}
-                        def m2(x:String) {}
-                        def m3(x:String, y:String) {}
-                    }
-                }
-
-            """} toBe {"""
-
-                goog.provide('$pkg.A');
-
-                /** @constructor*/
-                $pkg.A = function() {
-                    var self = this;
-                };
-
-                $pkg.A.prototype.m1 = function() {var self = this;};
-                $pkg.A.prototype.m2 = function(x) {var self = this;};
-                $pkg.A.prototype.m3 = function(x,y) {var self = this;};
-
-            """}
-        }
-
-        it("can have fields") {
-
-            parser expect {"""
-
-                package $pkg {
-                    class A {
-                        val f1 = "f1"
-                        var f2 = null
-                    }
-                }
-
-            """} toBe {"""
-
-                goog.provide('$pkg.A');
-
-                /** @constructor*/
-                $pkg.A = function() {var self = this;};
-
-                $pkg.A.prototype.f1 = 'f1';
-                $pkg.A.prototype.f2 = null;
-
-            """}
-        }
-
-        it("can inherit from another class") {
-
-            parser expect {"""
-
-                package $pkg {
-                    class A
-                    class B(var x:String) extends A
-                    class C(x:String, y:String) extends B(x)
-                }
-
-            """} toBe {"""
-
-                goog.provide('$pkg.A');
-                goog.provide('$pkg.B');
-                goog.provide('$pkg.C');
-
-                /** @constructor*/
-                $pkg.A = function() {var self = this;};
-
-                /** @constructor*/
-                $pkg.B = function(x) {
-                    var self = this;
-                    $pkg.A.call(self);
-                    self.x = x;
-                };
-                goog.inherits($pkg.B, $pkg.A);
-
-                $pkg.B.prototype.x = null;
-
-                /** @constructor*/
-                $pkg.C = function(x,y) {
-                    var self = this;
-                    $pkg.B.call(self,x);
-                    self.y = y;
-                };
-                goog.inherits($pkg.C, $pkg.B);
-
-                $pkg.C.prototype.x = null;
-                $pkg.C.prototype.y = null;
-            """}
-        }
-
-        it("can have default arguments for constructors") {
-
-            parser expect {"""
-
-                package $pkg {
-                    class A(x:String = "")
-                    class B extends A
-                }
-
-            """} toBe {"""
-
-                goog.provide('$pkg.A');
-                goog.provide('$pkg.B');
-
-                /** @constructor*/
-                $pkg.A = function(x) {
-                    var self = this;
-                    self.x = x;
-                };
-
-                $pkg.A.prototype.x = null;
-
-                /** @constructor*/
-                $pkg.B = function() {
-                    var self = this;
-                    $pkg.A.call(self);
-                };
-                goog.inherits($pkg.B, $pkg.A);
-
-            """}
-
-        }
-
-        it("can have a constructor body") {
-
-            parser expect {"""
-
-                class A(x:String) {
-                    val y:String = ""
-                    var z:String = ""
-                    z = "what"
-                    println("foo"+z)
-                }
-
-            """} toBe {"""
-
-                goog.provide('A');
-
-                /** @constructor*/
-                A = function(x) {
-                    var self = this;
-                    self.x = x;
-                    self.z = 'what';
-                    console.log(('foo' + self.z));
-                };
-
-                A.prototype.x = null;
-                A.prototype.y = '';
-                A.prototype.z = '';
-
-            """}
-
-        }
+      """}
     }
 
-    describe("objects") {
+    it("can mixin traits") {
 
-        it("can have methods") {
+      parser expect {"""
 
-            parser expect {"""
-                package $pkg {
-                    object a {
-                        def m1() {}
-                    }
-                }
-            """} toBe {"""
-                goog.provide('$pkg.a');
-                $pkg.a.m1 = function() {var self = this;};
-            """}
-        }
+      package pkg
 
-        it("can have variables") {
+      trait T {
+        val f1 = "foo"
+        def m1():Unit
+      }
 
-            parser expect {"""
-                package $pkg {
-                    object a {
-                        val x = "foo"
-                    }
-                }
-            """} toBe {"""
-                goog.provide('$pkg.a');
-                $pkg.a.x = 'foo';
-            """}
-        }
+      class A
 
-        it("can be package objects") {
+      class B extends A with T
 
-            parser expect {"""
+      """} toDebug {"""
 
-            package p1
+      goog.provide('pkg.T');
+      goog.provide('pkg.A');
+      goog.provide('pkg.B');
 
-            package object o1 {
-                val f1 = ""
-                def m1() {
-                    println(f1) 
-                }
-            }
+      /** @constructor*/
+      pkg.T = function() {var self = this;};
+      pkg.T.prototype.f1 = 'foo';
+      pkg.T.prototype.m1 = function() {var self = this;};
 
-            """} toBe {"""
+      /** @constructor*/
+      pkg.A = function() {var self = this;};
 
-            goog.provide('p1.o1');
-            p1.o1.f1 = '';
-            p1.o1.m1 = function() {var self = this;console.log(p1.o1.f1);};
+      /** @constructor*/
+      pkg.B = function() {
+        var self = this;
+        pkg.A.call(self);
+      };
+      goog.inherits(pkg.B, pkg.A);
+      pkg.B.prototype.m1 = pkg.T.prototype.m1;
+      pkg.B.prototype.f1 = pkg.T.prototype.f1;
 
-            """}
-        }
+      """}
     }
 
-    describe("misc") {
+    it("can have constructors arguments") {
 
-        it("println should convert to console log") {
+      parser expect {"""
 
-            parser expect {"""
-                object a {
-                    def m1() {
-                        println("f")
-                    }
-                }
-            """} toBe {"""
-                goog.provide('a');
-                a.m1 = function() {var self = this;
-                    console.log('f');
-                };
-            """}
-        }
+      package $pkg {
+        class A()
+        class B(x:String)
+        class C(x:String, y:String)
+      }
 
-        it("export functions that have been annotated") {
+      """} toBe {"""
 
-            parser expect {"""
-                package $pkg
+      goog.provide('$pkg.A');
+      goog.provide('$pkg.B');
+      goog.provide('$pkg.C');
 
-                object a {
-                    @s2js.ExportSymbol
-                    def m1() {}
-                }
-            """} toBe {"""
-                goog.provide('$pkg.a');
-                $pkg.a.m1 = function() {var self = this;};
-                goog.exportSymbol('$pkg.a.m1', $pkg.a.m1);
-            """}
+      /** @constructor*/
+      $pkg.A = function() {
+        var self = this;
+      };
 
-            
-        }
+      /** @constructor*/
+      $pkg.B = function(x) {
+        var self = this;
+        self.x = x;
+      };
+      $pkg.B.prototype.x = null;
+
+      /** @constructor*/
+      $pkg.C = function(x,y) {
+        var self = this;
+        self.x = x;
+        self.y = y;
+      };
+      $pkg.C.prototype.x = null;
+      $pkg.C.prototype.y = null;
+
+      """}
     }
+
+    it("can have methods") {
+
+      parser expect {"""
+
+      package $pkg {
+        class A {
+          def m1() {}
+          def m2(x:String) {}
+          def m3(x:String, y:String) {}
+        }
+      }
+
+      """} toBe {"""
+
+      goog.provide('$pkg.A');
+
+      /** @constructor*/
+      $pkg.A = function() {
+        var self = this;
+      };
+
+      $pkg.A.prototype.m1 = function() {var self = this;};
+      $pkg.A.prototype.m2 = function(x) {var self = this;};
+      $pkg.A.prototype.m3 = function(x,y) {var self = this;};
+
+      """}
+    }
+
+    it("can have fields") {
+
+      parser expect {"""
+
+      package $pkg {
+        class A {
+          val f1 = "f1"
+          var f2 = null
+        }
+      }
+
+      """} toBe {"""
+
+      goog.provide('$pkg.A');
+
+      /** @constructor*/
+      $pkg.A = function() {var self = this;};
+
+      $pkg.A.prototype.f1 = 'f1';
+      $pkg.A.prototype.f2 = null;
+
+      """}
+    }
+
+    it("can inherit from another class") {
+
+      parser expect {"""
+
+      package $pkg {
+        class A
+        class B(var x:String) extends A
+        class C(x:String, y:String) extends B(x)
+      }
+
+      """} toBe {"""
+
+      goog.provide('$pkg.A');
+      goog.provide('$pkg.B');
+      goog.provide('$pkg.C');
+
+      /** @constructor*/
+      $pkg.A = function() {var self = this;};
+
+      /** @constructor*/
+      $pkg.B = function(x) {
+        var self = this;
+        $pkg.A.call(self);
+        self.x = x;
+      };
+      goog.inherits($pkg.B, $pkg.A);
+
+      $pkg.B.prototype.x = null;
+
+      /** @constructor*/
+      $pkg.C = function(x,y) {
+        var self = this;
+        $pkg.B.call(self,x);
+        self.y = y;
+      };
+      goog.inherits($pkg.C, $pkg.B);
+
+      $pkg.C.prototype.x = null;
+      $pkg.C.prototype.y = null;
+      """}
+    }
+
+    it("can have default arguments for constructors") {
+
+      parser expect {"""
+
+      package $pkg {
+        class A(x:String = "")
+        class B extends A
+      }
+
+      """} toBe {"""
+
+      goog.provide('$pkg.A');
+      goog.provide('$pkg.B');
+
+      /** @constructor*/
+      $pkg.A = function(x) {
+        var self = this;
+        self.x = x;
+      };
+
+      $pkg.A.prototype.x = null;
+
+      /** @constructor*/
+      $pkg.B = function() {
+        var self = this;
+        $pkg.A.call(self);
+      };
+      goog.inherits($pkg.B, $pkg.A);
+
+      """}
+
+    }
+
+    it("can have a constructor body") {
+
+      parser expect {"""
+
+      class A(x:String) {
+        val y:String = ""
+        var z:String = ""
+        z = "what"
+        println("foo"+z)
+      }
+
+      """} toBe {"""
+
+      goog.provide('A');
+
+      /** @constructor*/
+      A = function(x) {
+        var self = this;
+        self.x = x;
+        self.z = 'what';
+        console.log(('foo' + self.z));
+      };
+
+      A.prototype.x = null;
+      A.prototype.y = '';
+      A.prototype.z = '';
+
+      """}
+
+    }
+  }
+
+  describe("objects") {
+
+    it("can have methods") {
+
+      parser expect {"""
+      package $pkg {
+        object a {
+          def m1() {}
+        }
+      }
+      """} toBe {"""
+      goog.provide('$pkg.a');
+      $pkg.a.m1 = function() {var self = this;};
+      """}
+    }
+
+    it("can have variables") {
+
+      parser expect {"""
+      package $pkg {
+        object a {
+          val x = "foo"
+        }
+      }
+      """} toBe {"""
+      goog.provide('$pkg.a');
+      $pkg.a.x = 'foo';
+      """}
+    }
+
+    it("can be package objects") {
+
+      parser expect {"""
+
+      package p1
+
+      package object o1 {
+        val f1 = ""
+        def m1() {
+          println(f1) 
+        }
+      }
+
+      """} toBe {"""
+
+      goog.provide('p1.o1');
+      p1.o1.f1 = '';
+      p1.o1.m1 = function() {var self = this;console.log(p1.o1.f1);};
+
+      """}
+    }
+  }
+
+  describe("misc") {
+
+    it("println should convert to console log") {
+
+      parser expect {"""
+      object a {
+        def m1() {
+          println("f")
+        }
+      }
+      """} toBe {"""
+      goog.provide('a');
+      a.m1 = function() {var self = this;
+      console.log('f');
+    };
+    """}
+  }
+
+  it("export functions that have been annotated") {
+
+    parser expect {"""
+    package $pkg
+
+    object a {
+      @s2js.ExportSymbol
+      def m1() {}
+    }
+    """} toBe {"""
+    goog.provide('$pkg.a');
+    $pkg.a.m1 = function() {var self = this;};
+    goog.exportSymbol('$pkg.a.m1', $pkg.a.m1);
+    """}
+
+
+  }
 }
-
-// vim: set ts=4 sw=4 foldmethod=syntax et:
+}
