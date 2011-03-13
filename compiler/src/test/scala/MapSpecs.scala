@@ -12,17 +12,18 @@ class MapSpecs extends PrinterFixtureSpec {
             parser expect {"""
                 object a {
                     val x = Map(
-                        "name"->Map("first"->"bat", "last"->"man"), 
+                        "name"->s2js.JsObject("first"->"bat", "last"->"man"), 
                         "title"->"pres",
                         "fast"->true,
                         "age"->5)
                 }
             """} toBe {"""
                 goog.provide('a');
-                a.x = {'name':{'first':'bat','last':'man'},
-                       'title':'pres',
-                       'fast':true,
-                       'age':5};
+                a.x = new scala.collection.mutable.HashMap({
+                    'name':{'first':'bat','last':'man'},
+                    'title':'pres',
+                    'fast':true,
+                    'age':5});
             """}
         }
         
@@ -37,9 +38,9 @@ class MapSpecs extends PrinterFixtureSpec {
             """} toBe {"""
                 goog.provide('a');
                 goog.require('goog.array');
-                a.x = {
+                a.x = new scala.collection.mutable.HashMap({
                     'name':'batman',
-                    'powers':['fighting','IQ']};
+                    'powers':['fighting','IQ']});
             """}
         }
 
@@ -56,11 +57,11 @@ class MapSpecs extends PrinterFixtureSpec {
             """} toBe {"""
                 goog.provide('a');
                 goog.require('goog.array');
-                a.x = {
+                a.x = new scala.collection.mutable.HashMap({
                     'name':'batman',
                     'powers':[
                         {'name':'fighting','level':6},
-                        {'name':'IQ','level':10}]};
+                        {'name':'IQ','level':10}]});
             """}
 
         }
@@ -88,7 +89,7 @@ class MapSpecs extends PrinterFixtureSpec {
             """}
         }
 
-        it("supports foreach method") {
+        ignore("supports foreach method") {
 
             parser expect {"""
 
