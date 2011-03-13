@@ -196,7 +196,7 @@ trait S2JSPrinter {
           args.map(buildObjectLiteral).mkString("[",",","]")
 
         case x @ Apply(TypeApply(y @ Select(Select(_, n), _), _), args) if(n.toString.matches("(Map|HashMap)")) =>
-          "new HashMap(%s)".format(args.map(buildObjectLiteral).mkString("{",",","}"))
+          "new scala.collection.mutable.HashMap(%s)".format(args.map(buildObjectLiteral).mkString("{",",","}"))
 
         case x @ Apply(TypeApply(y @ Select(Select(_, n), _), _), args) if(n.toString.matches("Tuple[0-9]+")) => 
           args.zipWithIndex map { 
