@@ -54,6 +54,8 @@ trait S2JSPrinter {
 
     def tree2string(tree:Tree):String = {
 
+        debug("f:1", tree)
+
         // using a list buffer for simplicity and to add hard returns for formatting
         val lb = new ListBuffer[String]
 
@@ -188,27 +190,34 @@ trait S2JSPrinter {
             case v => v.toString
         }
 
-        case x @ Return(expr) => 
-            "return "+buildTree(expr)
+        case x @ Return(expr) => "return "+buildTree(expr)
 
-        case x @ Apply(TypeApply(y @ Select(Select(_, n), _), _), args) if(n.toString == "Array") => 
-            args.map(buildObjectLiteral).mkString("[",",","]")
+        case x @ Apply(TypeApply(y @ Select(Select(_, n), _), _), args) if(n.toString == "Array") =>
+          args.map(buildObjectLiteral).mkString("[",",","]")
 
-        case x @ Apply(TypeApply(y @ Select(Select(_, n), _), _), args) if(n.toString == "HashMap") => 
-            "new %s(%s)".format(n, args.map(buildObjectLiteral).mkString("{",",","}"))
+        case x @ Apply(TypeApply(y @ Select(Select(_, n), _), _), args) if(n.toString == "HashMap") =>
+          "new %s(%s)".format(n, args.map(buildObjectLiteral).mkString("{",",","}"))
 
-        case x @ Apply(TypeApply(y @ Select(Select(_, n), _), _), args) if(n.toString == "Map") => 
-            args.map(buildObjectLiteral).mkString("{",",","}")
+        case x @ Apply(TypeApply(y @ Select(Select(_, n), _), _), args) if(n.toString.matches("Map")) =>
+          "new HashMap(%s)".format(args.map(buildObjectLiteral).mkString("{",",","}"))
+
+        case x @ Apply(TypeApply(y @ Select(Select(_, n), _), _), args) if(n.toString.matches("Tuple[0-9]+")) => 
+          args.zipWithIndex map { 
+            a => "'_%s':%s".format((a._2+1), a._1.toString.replace("\"", "'")) 
+          } mkString("{",",","}")
 
         case x @ Apply(TypeApply(Select(q, n), _), args) if(q.symbol.nameString == "refArrayOps") =>
             val arrayName = q.asInstanceOf[ApplyImplicitView].args.head
             "goog.array.forEach(%s, %s, self)".format(arrayName, args.map(buildTree).mkString)
 
+        case x @ Apply(Select(q, n), args) if q.toString.matches("s2js.JsObject") => args map {
+          buildObjectLiteral
+        } mkString("{",",","}")
+
         case x @ Apply(Select(qualifier, BinaryOperator(op)), args) =>
             "(%s %s %s)".format(buildTree(qualifier), op, args.map(buildTree).mkString)
 
-        case x @ Apply(Select(qualifier, name), args) if name.toString.endsWith("s2js.Html") =>
-            "html"
+        case x @ Apply(Select(qualifier, name), args) if name.toString.endsWith("s2js.Html") => "html"
 
         case x:ApplyToImplicitArgs => x.fun match {
             case y => buildTree(y)
@@ -245,8 +254,6 @@ trait S2JSPrinter {
                 case y @ Apply(TypeApply(Select(q, n), iargs), yargs) => buildObjectLiteral(y)
             } mkString("{",",","}")
 
-            debug("f:2c", args)
-
             def filterArgs(xs:List[Tree]) = xs.filter {
                 case y @ (TypeApply(_,_) | Select(_,_)) => !y.symbol.hasFlag(DEFAULTPARAM)
                 case y => true
@@ -259,9 +266,11 @@ trait S2JSPrinter {
 
             val filteredArgs = filterArgs(args)
 
-            val tmp = fun.symbol.owner.nameString match {
-                case "Array" | "MapLike" => "%s[%s]"
-                case _ => "%s(%s)"
+            def ownerName(t:Tree) = if(fun.hasSymbol) Some(fun.symbol.owner.nameString) else  None
+
+            val tmp = ownerName(fun) match {
+                case Some("Array" | "MapLike") => "%s[%s]"
+                case None => "%s(%s)"
             }
 
             def buildApply(f:Tree, xs:List[Tree]) = tmp.format(buildTree(f), xs.map(buildTree).mkString(","))
@@ -413,7 +422,7 @@ trait S2JSPrinter {
         val s = new collection.mutable.LinkedHashSet[String] 
 
         var currentFile:scala.tools.nsc.io.AbstractFile = null
-        val thingsToIgnore = List("s2js.Html", "ClassManifest", "scala", "java.lang", "scala.xml", "$default$", "browser")
+        val thingsToIgnore = List("s2js.JsObject", "s2js.Html", "ClassManifest", "scala", "java.lang", "scala.xml", "$default$", "browser")
 
         def traverse(t:Tree):Unit = t match {
 
@@ -616,34 +625,35 @@ trait S2JSPrinter {
 
     def buildObjectLiteral(t:Tree):String = t match {
 
-        case x @ Literal(Constant(value)) => value match {
-            case v:String => "'"+v+"'"
-            case x:Unit => ""
-            case v => v.toString
-        }
+      case x @ Literal(Constant(value)) => value match {
+        case v:String => "'"+v+"'"
+        case x:Unit => ""
+        case v => v.toString
+      }
 
-        case x @ Apply(TypeApply(y @ Select(Select(_, n), _), _), args) if(n.toString == "Map") => 
-            
-            args.map(buildObjectLiteral).mkString("{",",","}")
+      case x @ Apply(TypeApply(y @ Select(Select(_, n), _), _), args) if(n.toString == "Map") => args.map {
+        buildObjectLiteral
+      } mkString("{",",","}")
 
-        case x @ Apply(TypeApply(Select(q, n), _), args) if (n.toString == "$minus$greater") => 
+      case x @ Apply(TypeApply(Select(q, n), _), args) if (n.toString == "$minus$greater") => {
 
-            // this should be a string
-            val key = q.asInstanceOf[ApplyImplicitView].args.head.toString.replace("\"", "'")
+        // this should be a string
+        val key = q.asInstanceOf[ApplyImplicitView].args.head.toString.replace("\"", "'")
 
-            // process nested objects
-            val values = args map buildObjectLiteral
+        // process nested objects
+        val values = args map buildObjectLiteral
 
-            "%s:%s".format(key, values.mkString)
+        "%s:%s".format(key, values.mkString)
+      }
 
-        case x:ApplyToImplicitArgs => x.fun match {
-            case y @ Apply(TypeApply(Select(n, _), _), as) if(n.toString == "scala.Array") => 
-                as.map(buildObjectLiteral).mkString("[", ",", "]")
-            case y => y.getClass.toString
-        }
+      case x:ApplyToImplicitArgs => x.fun match {
+        case y @ Apply(TypeApply(Select(n, _), _), args) if(n.toString == "scala.Array") => args map {
+          buildObjectLiteral 
+        } mkString("[", ",", "]")
+        case y => y.getClass.toString
+      }
 
-        case x => buildTree(x)
+      case x => buildTree(x)
     }
 }
 
-// vim: set ts=4 sw=4 et:
