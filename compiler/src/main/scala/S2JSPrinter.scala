@@ -20,8 +20,8 @@ trait S2JSPrinter {
 	import definitions._
 
     def debug(name:String, thing:Any) {
-        print(name+" ")
-        println(thing.toString)
+        //print(name+" ")
+        //println(thing.toString)
     }
 
     case class RichTree(t:Tree) {
@@ -126,7 +126,7 @@ trait S2JSPrinter {
                 case x @ Apply(Select(Super(qual, mix), name), args) if(name.toString == "<init>") => superClassName match {
                     case Some(y) => 
                         val filteredArgs = args.filter(!_.toString.contains("$default$")).map(_.toString)
-                        lb += "%s.call(%s);".format(y, (List("self") ++ filteredArgs).mkString(","))
+                        lb += "%s.call(%s);".format(y.symbol.fullName, (List("self") ++ filteredArgs).mkString(","))
                         ctorArgs.diff(filteredArgs).foreach {
                             y => lb += "self.%1$s = %1$s;".format(y)
                         }
@@ -148,7 +148,7 @@ trait S2JSPrinter {
         }
 
         superClassName.foreach {
-            x => lb += "goog.inherits(%s, %s);".format(className, x)
+            x => lb += "goog.inherits(%s, %s);".format(className, x.symbol.fullName)
         }
 
         val traits = t.impl.parents filterNot { isCosmicType } filter { _.symbol.isTrait }
@@ -267,7 +267,7 @@ trait S2JSPrinter {
 
             val tmp = ownerName(fun) match {
                 case Some("Array" | "MapLike") => "%s[%s]"
-                case None => "%s(%s)"
+                case _ => "%s(%s)"
             }
 
             def buildApply(f:Tree, xs:List[Tree]) = tmp.format(buildTree(f), xs.map(buildTree).mkString(","))
