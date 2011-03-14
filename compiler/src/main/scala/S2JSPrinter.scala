@@ -49,6 +49,7 @@ trait S2JSPrinter {
             "$amp$amp"		-> "&&",
             "$plus"		    -> "+",
             "$minus"		-> "-",
+            "$percent"		-> "%",
             "$bar$bar"		-> "||").get(name.toString)
     }
 
@@ -63,25 +64,25 @@ trait S2JSPrinter {
         tree.children filter {
             x => (x.isInstanceOf[PackageDef] || x.isInstanceOf[ClassDef] || x.isInstanceOf[ModuleDef]) && !x.symbol.isSynthetic
         } foreach { 
-            x => lb += "goog.provide('%s');".format(x.symbol.fullName) 
+            x => lb += "goog.provide('%s');\n".format(x.symbol.fullName) 
         }
 
         // determine the necessary dependencies for requires statements
         findRequiresFrom(tree) foreach {
-            x => lb += "goog.require('%s');".format(x)
+            x => lb += "goog.require('%s');\n".format(x)
         }
 
         // this starts the big traverse
         // TODO: should be able to do this in the buildTree function
         lb += tree.children.map(buildPackageLevelItem).mkString
 
-        lb.mkString("\n")
+        lb.mkString
     }
 
     def buildPackageLevelItem(t:Tree):String = t match {
         case x @ ClassDef(_, _, _, _) => buildClass(x)
-        case x @ ModuleDef(_, _, Template(_, _, body)) if(!x.symbol.hasFlag(SYNTHETIC)) => body.map(buildPackageLevelItemMember).mkString("\n")
-        case x @ PackageDef(_, stats) => stats.map(buildPackageLevelItemMember).mkString("\n")
+        case x @ ModuleDef(_, _, Template(_, _, body)) if(!x.symbol.hasFlag(SYNTHETIC)) => body.map(buildPackageLevelItemMember).mkString
+        case x @ PackageDef(_, stats) => stats.map(buildPackageLevelItemMember).mkString
         case x =>  ""
     }
 
@@ -117,38 +118,38 @@ trait S2JSPrinter {
             val ctorArgs = ctorDef.vparamss.flatten.map(_.symbol.nameString)
 
             lb += "/** @constructor*/"
-            lb += "%s = function(%s) {".format(className, ctorArgs.mkString(","))
+            lb += "%s = function(%s) {\n".format(className, ctorArgs.mkString(","))
 
-            lb += "var self = this;"
+            lb += "var self = this;\n"
 
             // superclass construction and field initialization
             t.impl.foreach {
                 case x @ Apply(Select(Super(qual, mix), name), args) if(name.toString == "<init>") => superClassName match {
                     case Some(y) => 
                         val filteredArgs = args.filter(!_.toString.contains("$default$")).map(_.toString)
-                        lb += "%s.call(%s);".format(y.symbol.fullName, (List("self") ++ filteredArgs).mkString(","))
+                        lb += "%s.call(%s);\n".format(y.symbol.fullName, (List("self") ++ filteredArgs).mkString(","))
                         ctorArgs.diff(filteredArgs).foreach {
-                            y => lb += "self.%1$s = %1$s;".format(y)
+                            y => lb += "self.%1$s = %1$s;\n".format(y)
                         }
                     case None => 
                         ctorArgs.foreach {
-                            y => lb += "self.%1$s = %1$s;".format(y)
+                            y => lb += "self.%1$s = %1$s;\n".format(y)
                         }
                 }
                 case x => 
             }
 
             t.impl.body foreach {
-                case x @ Apply(fun, args) => lb += buildTree(x)+";"
+                case x @ Apply(fun, args) => lb += buildTree(x)+";\n"
                 case x @ ClassDef(_, _, _, _) => lb += buildClass(x)
                 case x =>
             }
 
-            lb += "};"
+            lb += "};\n"
         }
 
         superClassName.foreach {
-            x => lb += "goog.inherits(%s, %s);".format(className, x.symbol.fullName)
+            x => lb += "goog.inherits(%s, %s);\n".format(className, x.symbol.fullName)
         }
 
         val traits = t.impl.parents filterNot { isCosmicType } filter { _.symbol.isTrait }
@@ -163,7 +164,7 @@ trait S2JSPrinter {
         }
 
         traitMembers.flatten foreach {
-            x => lb += "%s.prototype.%s = %s.prototype.%s;".format(className, x._2, x._1, x._2)
+            x => lb += "%s.prototype.%s = %s.prototype.%s;\n".format(className, x._2, x._1, x._2)
         }
 
         val caseMemberNames = List("productPrefix", "productArity", "productElement", "equals", "toString", "canEqual", "hashCode", "copy")
@@ -178,7 +179,7 @@ trait S2JSPrinter {
             lb ++= t.impl.body.map(buildPackageLevelItemMember)
         }
 
-        return lb.mkString("\n")
+        return lb.mkString
     }
 
     def buildTree(t:Tree):String = t match {
@@ -203,13 +204,21 @@ trait S2JSPrinter {
             a => "'_%s':%s".format((a._2+1), a._1.toString.replace("\"", "'")) 
           } mkString("{",",","}")
 
-        case x @ Apply(TypeApply(Select(q, n), _), args) if(q.symbol.nameString == "refArrayOps") =>
-            val arrayName = q.asInstanceOf[ApplyImplicitView].args.head
-            "goog.array.forEach(%s, %s, self)".format(arrayName, args.map(buildTree).mkString)
+        //case x @ Apply(TypeApply(Select(q, n), _), args) if(q.symbol.nameString == "refArrayOps") =>
+            //val arrayName = q.asInstanceOf[ApplyImplicitView].args.head
+            //"""for(var i = 0, l = obj.length; i < l; i++) { 
+              //if(iterator.call(context, obj[i], i, obj) === breaker) return;
+            //}
+            //"""
+            //"goog.array.forEach(%s, %s, self)".format(arrayName, args.map(buildTree).mkString)
 
         case x @ Apply(Select(q, n), args) if q.toString.matches("s2js.JsObject") => args map {
           buildObjectLiteral
         } mkString("{",",","}")
+
+        case x @ Apply(Select(q, n), args) if q.toString.matches("s2js.JsArray") => args map {
+          buildObjectLiteral
+        } mkString("[",",","]")
 
         case x @ Apply(Select(qualifier, BinaryOperator(op)), args) =>
             "(%s %s %s)".format(buildTree(qualifier), op, args.map(buildTree).mkString)
@@ -241,6 +250,8 @@ trait S2JSPrinter {
             debug("=========================", "")
             debug("f:2a", x)
             debug("f:2b", fun)
+
+            args foreach { x => debug("f:2c", x.getClass) }
 
             def isArrowAssoc(t:Tree):Boolean = t match {
                 case y @ Apply(TypeApply(f, yargs), _) if(f.symbol.owner.nameString == "ArrowAssoc") => true
@@ -297,15 +308,15 @@ trait S2JSPrinter {
 
             val transformedThen = thenp match {
                 case y @ Block(_, _) => buildBlock(y)
-                case y => buildTree(y)+";"
+                case y => buildTree(y)+";\n"
             }
 
             val transformedElse = elsep match {
                 case y @ Block(_, _) => buildBlock(y)
-                case y => buildTree(y)+";"
+                case y => buildTree(y)+";\n"
             }
 
-            "%s ? function() { %s }() : function() { %s }()".format(buildTree(cond), transformedThen, transformedElse)
+            "%s ? function() {\n%s}() : function() {\n%s}()".format(buildTree(cond), transformedThen, transformedElse)
 
         case x @ Function(vparams, body) =>
             val args = vparams.map(_.symbol.nameString).mkString(",")
@@ -315,7 +326,7 @@ trait S2JSPrinter {
                 case y => buildExpression(y)
             }
 
-            "function(%s) {%s}".format(args, impl)
+            "function(%s) {\n%s}".format(args, impl)
 
         case EmptyTree => "null"
 
@@ -343,7 +354,9 @@ trait S2JSPrinter {
             case y => buildTree(y)+"."+name
         }
 
-        case x @ Block(stats, expr) => buildBlock(x)
+        case x @ Block(stats, expr) => 
+          debug("f:3", expr.getClass)
+          buildBlock(x)
 
         case x @ This(n) => if(x.symbol.isModuleClass)  n.toString else "self"
 
@@ -369,19 +382,22 @@ trait S2JSPrinter {
     
     def buildExpression(t:Tree):String =  buildTree(t) match {
         case z if(t.tpe.toString == "Unit") => 
-            if(z == "") "" else "%s;".format(z)
+            if(z == "") "" else "%s;\n".format(z)
         case z => 
-            "return %s;".format(z)
+            "return %s;\n".format(z)
     }
 
     def buildBlock(t:Block):String = {
 
-        val stats = t.stats map { buildTree } map { _ + ";" }
+        val stats = t.stats map { buildTree } map { _ + ";\n" }
             
-        val expr = buildTree(t.expr) match {
-            case z if(t.tpe.toString == "Unit") => if(z == "") None else Some("%s;".format(z))
-            case z if(t.tpe.toString.endsWith(" => Unit")) => if(z == "") None else Some("%s".format(z))
-            case z => Some("return %s;".format(z))
+        val expr = t.expr match {
+          case x @ Function(_, _) => Some(buildTree(t.expr)) 
+          case x => buildTree(x) match {
+            case z if t.tpe.toString == "Unit" => if(z == "") None else Some("%s;\n".format(z))
+            case z if t.tpe.toString.endsWith(" => Unit") => if(z == "") None else Some("%s".format(z))
+            case z => Some("return %s;\n".format(z))
+          }
         }
 
         stats.mkString + expr.getOrElse("")
@@ -391,12 +407,12 @@ trait S2JSPrinter {
 
         case x @ Match(selector, cases) => 
 
-            val theSwitch = "switch(%s) {%s}".format(
+            val theSwitch = "switch(%s) {\n%s}".format(
                 buildTree(selector), 
                 cases.map(y => buildSwitch(y, hasReturn)).mkString)
 
             if(hasReturn)
-                "function() {%s}()".format(theSwitch)
+                "function() {\n%s}()".format(theSwitch)
             else theSwitch
 
 
@@ -408,9 +424,9 @@ trait S2JSPrinter {
             }
 
             if(hasReturn) {
-                "%s: return %s;".format(part, buildTree(body))
+                "%s: return %s;\n".format(part, buildTree(body))
             } else {
-                "%s: %s;break;".format(part, buildTree(body))
+                "%s: %s;break;\n".format(part, buildTree(body))
             }
     }
 
@@ -419,7 +435,9 @@ trait S2JSPrinter {
         val s = new collection.mutable.LinkedHashSet[String] 
 
         var currentFile:scala.tools.nsc.io.AbstractFile = null
-        val thingsToIgnore = List("s2js.JsObject", "s2js.Html", "ClassManifest", "scala", "java.lang", "scala.xml", "$default$", "browser")
+
+        val thingsToIgnore = List("s2js.JsObject", "s2js.JsArray", "s2js.Html", "ClassManifest", "scala", 
+          "java.lang", "scala.xml", "$default$", "browser")
 
         def traverse(t:Tree):Unit = t match {
 
@@ -515,9 +533,9 @@ trait S2JSPrinter {
         val rhs = buildTree(tree.rhs)
 
         if(tree.symbol.owner.isModuleClass) {
-            "%s.%s = %s;".format(className, buildName(tree.symbol), rhs)
+            "%s.%s = %s;\n".format(className, buildName(tree.symbol), rhs)
         } else {
-            "%s.prototype.%s = %s;".format(className, buildName(tree.symbol), rhs)
+            "%s.prototype.%s = %s;\n".format(className, buildName(tree.symbol), rhs)
         }
     }
 
@@ -539,32 +557,32 @@ trait S2JSPrinter {
         val l = new ListBuffer[String]
 
         if(ts.symbol.owner.isModuleClass) {
-            l += "%s.%s = function(%s) {".format(ns, buildName(ts.symbol), args)
+            l += "%s.%s = function(%s) {\n".format(ns, buildName(ts.symbol), args)
         } else {
-            l += "%s.prototype.%s = function(%s) {".format(ns, buildName(ts.symbol), args)
+            l += "%s.prototype.%s = function(%s) {\n".format(ns, buildName(ts.symbol), args)
         }
 
         // every method gets a self refrence
-        l += "var self = this;"
+        l += "var self = this;\n"
 
         val stats = ts.rhs match {
             case y @ Block(_, _) => buildBlock(y)
             case y => buildTree(y) match {
                 case z if(ts.tpt.symbol.nameString == "Unit") => 
-                    if(z == "") "" else "%s;".format(z)
-                case z => "return %s;".format(z)
+                    if(z == "") "" else "%s;\n".format(z)
+                case z => "return %s;\n".format(z)
             }
         }
         
         l += stats
 
-        l += "};"
+        l += "};\n"
 
         if(ts.symbol.annotations exists {_.toString == "s2js.ExportSymbol"}) {
-            l += "goog.exportSymbol('%1$s', %1$s);".format(ns+"."+name)
+            l += "goog.exportSymbol('%1$s', %1$s);\n".format(ns+"."+name)
         }
 
-        l.mkString("\n")
+        l.mkString
     }
 
     def buildXmlLiteral(t:Tree):String = t match {

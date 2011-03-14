@@ -55,16 +55,19 @@ class PackageSpecs extends PrinterFixtureSpec {
 
       class B extends A with T
 
-      """} toDebug {"""
+      """} toBe {"""
 
       goog.provide('pkg.T');
       goog.provide('pkg.A');
       goog.provide('pkg.B');
 
       /** @constructor*/
-      pkg.T = function() {var self = this;};
+      pkg.T = function() {};
       pkg.T.prototype.f1 = 'foo';
-      pkg.T.prototype.m1 = function() {var self = this;};
+      pkg.T.prototype.m1 = function() {
+        var self = this;
+        null;
+      };
 
       /** @constructor*/
       pkg.A = function() {var self = this;};
@@ -75,8 +78,8 @@ class PackageSpecs extends PrinterFixtureSpec {
         pkg.A.call(self);
       };
       goog.inherits(pkg.B, pkg.A);
-      pkg.B.prototype.m1 = pkg.T.prototype.m1;
       pkg.B.prototype.f1 = pkg.T.prototype.f1;
+      pkg.B.prototype.m1 = pkg.T.prototype.m1;
 
       """}
     }

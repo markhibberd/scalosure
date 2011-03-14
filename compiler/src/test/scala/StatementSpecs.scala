@@ -31,7 +31,7 @@ class StatementSpecs extends PrinterFixtureSpec {
             var self = this;
             var v1 = true;
             var v2 = !v1;
-            !o.m1() ? function() { console.log('not'); }() : function() { ; }();
+            !o.m1() ? function() {console.log('not');}() : function() {;}();
         };
         """}
     }

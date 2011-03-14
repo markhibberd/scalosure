@@ -7,82 +7,126 @@ class FunctionSpecs extends PrinterFixtureSpec {
 
     describe("functions") {
 
-        it("can have a return value") {
+      it("can be higher-orderd") {
 
-            parser expect {"""
+        parser expect {"""
 
-            object a {
-                def m1() = {
-                    val x = "foo"
-                    x + "bar"
-                }
-                def m2() = {
-                    "foo"
-                }
-                def m3() = {
-                    "foo"+"bar"
-                }
-                def m4() {
-                    "foo"+"bar"
-                }
-            }
+        object o {
 
-            """} toBe {"""
-            goog.provide('a');
-            a.m1 = function() {
-                var self = this;
-                var x = 'foo';
-                return (x + 'bar');
-            };
-            a.m2 = function() {
-                var self = this;
-                return 'foo';
-            };
-            a.m3 = function() {
-                var self = this;
-                return ('foo' + 'bar');
-            };
-            a.m4 = function() {
-                var self = this;
-                ('foo' + 'bar');
-            };
-            """}
+          def toUpper(x:String) = x.toUpperCase
+
+          def m1(fn:(String) => String) {
+            val x = fn("From M1") 
+            println(x)
+          }
+
+          def m2() {
+            m1 { toUpper }
+            m1 { (x) => toUpper(x) }
+          }
         }
 
-        it("can have arguments") {
+        """} toBe {"""
 
-            parser expect {"""
-            object a {
-                def m1(x:String) {}
-                def m2(x:String, y:Int) {}
-            }
-            """} toBe {"""
-            goog.provide('a');
-            a.m1 = function(x) {var self = this;};
-            a.m2 = function(x,y) {var self = this;};
-            """}
+        goog.provide('o');
+        o.toUpper = function(x) {
+          var self = this;
+          return x.toUpperCase();
+        };
+        o.m1 = function(fn) {
+          var self = this;
+          var x = fn('From M1');
+          console.log(x);
+        };
+        o.m2 = function() {
+          var self = this;
+          o.m1(function(x) {
+              return o.toUpper(x);
+            });
+          o.m1(function(x) {
+              return o.toUpper(x);
+            });
+        };
 
+        """}
+      }
+
+      it("can have a return value") {
+
+        parser expect {"""
+
+        object a {
+          def m1() = {
+            val x = "foo"
+            x + "bar"
+          }
+          def m2() = {
+            "foo"
+          }
+          def m3() = {
+            "foo"+"bar"
+          }
+          def m4() {
+            "foo"+"bar"
+          }
         }
 
-        ignore("can have native javascript implementations") {
+        """} toBe {"""
+        goog.provide('a');
+        a.m1 = function() {
+          var self = this;
+          var x = 'foo';
+          return (x + 'bar');
+        };
+        a.m2 = function() {
+          var self = this;
+          return 'foo';
+        };
+        a.m3 = function() {
+          var self = this;
+          return ('foo' + 'bar');
+        };
+        a.m4 = function() {
+          var self = this;
+          ('foo' + 'bar');
+        };
+        """}
+      }
 
-            /* don't think this can work will without pre-processing */
+      it("can have arguments") {
 
-            parser expect {"""
-            object a {
-                @s2js.Native
-                def m1(x:String) {"var y = 'foo';console.log(x+y);"}
-            }
-            """} toBe {"""
-            goog.provide('a');
-            a.m1 = function(x) {
-                var self = this;
-                var y = 'foo';
-                console.log(x+y);
-            };
-            """}
-
+        parser expect {"""
+        object a {
+          def m1(x:String) {}
+          def m2(x:String, y:Int) {}
         }
+        """} toBe {"""
+        goog.provide('a');
+        a.m1 = function(x) {var self = this;};
+        a.m2 = function(x,y) {var self = this;};
+        """}
+
+      }
+
+      ignore("can have native javascript implementations") {
+
+        /* don't think this can work will without pre-processing */
+
+        parser expect {"""
+        object a {
+          @s2js.Native
+          def m1(x:String) {"var y = 'foo';console.log(x+y);"}
+        }
+        """} toBe {"""
+        goog.provide('a');
+        a.m1 = function(x) {
+          var self = this;
+          var y = 'foo';
+          console.log(x+y);
+        };
+        """}
+
+      }
 
     }
 

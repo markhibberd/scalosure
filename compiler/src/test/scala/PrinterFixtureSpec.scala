@@ -1,5 +1,7 @@
 package s2js
 
+import java.io._
+
 import org.scalatest.{ Spec, BeforeAndAfterAll }
 
 import scala.tools.nsc.{Settings, CompilerCommand}
@@ -8,6 +10,8 @@ import scala.tools.nsc.util.BatchSourceFile
 import scala.tools.nsc.reporters.{ConsoleReporter, Reporter}
 
 abstract class PrinterFixtureSpec extends Spec with BeforeAndAfterAll {
+
+    var testdriving = false
 
     def cleanit(str:String) = str.replaceAll("""([ ]{2,}|[\n])""", "")
 
@@ -22,9 +26,23 @@ abstract class PrinterFixtureSpec extends Spec with BeforeAndAfterAll {
         }
     
         def toDebug(jsCode:String) {
-            println("actual: "+cleanit(actual))
+            println("actual: "+actual)
             println()
-            println("expect: "+cleanit(jsCode))
+            println("expect: "+jsCode)
+            if(testdriving) {
+                val pw = new PrintWriter(new BufferedWriter(new FileWriter("testdriven.html")));
+                pw.print(<html>
+                    <head>
+                        <script type="text/javascript" src="/home/erick/projects/google-closure-library/closure/goog/base.js"></script>
+                    </head>
+                    <body>
+                        <script type="text/javascript">
+                            {actual}
+                        </script>
+                    </body>
+                </html>.toString)
+                pw.close
+            }
         }
     }
 
