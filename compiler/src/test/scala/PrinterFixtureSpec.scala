@@ -38,6 +38,7 @@ abstract class PrinterFixtureSpec extends Spec with BeforeAndAfterAll {
                     <body>
                         <script type="text/javascript">
                             {actual}
+                            o.start();
                         </script>
                     </body>
                 </html>.toString)
