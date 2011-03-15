@@ -6,41 +6,6 @@
 	<script type="text/javascript" src="/lib/closure/goog/base.js"></script>
 	<script type="text/javascript" src="/js/deps.js"></script>
 
-	<style>
-	
-		body {
-			margin:0;
-		}
-
-		.goog-splitpane {
-			margin:0;
-			height: 300px;
-			width: 900px;
-		}
-
-		.goog-splitpane-handle {
-			border-top:1px solid black;
-			border-bottom:1px solid black;
-			background: #ccc;
-			position: absolute;
-		}
-
-		.goog-splitpane-handle-horizontal {
-			cursor: col-resize;
-		}
-
-		.goog-splitpane-handle-vertical {
-			cursor: row-resize;
-		}
-
-		.goog-splitpane-first-container, .goog-splitpane-second-container {
-			border: 1px solid black;
-			overflow: auto;
-			position: absolute;
-		}
-
-	</style>
-
 </head>
 
 <body>
@@ -48,11 +13,11 @@
 	<div id="mainShell"></div>
 
 	<script type="text/javascript">
-		goog.require('demo.application');
+		goog.require('demo.app');
 	</script>
 
 	<script type="text/javascript">
-		demo.application.start();
+		demo.app.start();
 	</script>
 
 </body>
