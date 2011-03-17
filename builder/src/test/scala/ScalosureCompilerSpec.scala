@@ -8,9 +8,9 @@ class ScalosureCompilerSpec extends Spec {
 
     it("should get a deep list of files") {
 
-      val rst = ScalosureCompiler.compileJsFromPath("src/test/resources", "samples.a.Buz")
+      //val rst = ScalosureCompiler.compileJsFromPath("src/test/resources", "samples.a.Buz")
 
-      println(rst)
+      //println(rst)
     }
   }
 }
