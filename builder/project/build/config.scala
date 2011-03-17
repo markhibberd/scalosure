@@ -6,5 +6,6 @@ class ProjectConfig(info: ProjectInfo) extends PluginProject(info) {
     "routely" at "http://efleming969.github.com/repo")
 
   override def libraryDependencies = Set(
-    "com.google.javascript" % "closure-compiler" % "20110119")
+    "com.google.javascript" % "closure-compiler" % "20110119",
+    "org.scalatest"         % "scalatest"        % "1.1" % "test")
 }

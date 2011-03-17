@@ -29,6 +29,11 @@ trait ScalosureProject extends DefaultWebProject with AutoCompilerPlugins {
 
     None
   }
+
+  //lazy val jscompile = task {
+      //jsCompileAction
+      //None
+  //}
 }
 
 // vim: set ts=4 sw=4 et:
