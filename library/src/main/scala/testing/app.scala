@@ -10,7 +10,7 @@ object app {
   @s2js.ExportSymbol
   def start() {
 
-    val m = new HashMap
+    val m = HashMap("one"->"foo")
 
     println(m.foo())
   }
