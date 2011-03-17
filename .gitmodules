@@ -1,3 +1,6 @@
 [submodule "examples/src/main/webapp/lib"]
 	path = examples/src/main/webapp/lib
 	url = https://github.com/jarib/google-closure-library.git
+[submodule "library/src/main/webapp/lib"]
+	path = library/src/main/webapp/lib
+	url = https://github.com/jarib/google-closure-library.git
