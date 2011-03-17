@@ -5,8 +5,6 @@
 		 xsi:schemaLocation="http://java.sun.com/xml/ns/javaee http://java.sun.com/xml/ns/javaee/web-app_2_5.xsd"
 		 version="2.5">
 	
-	<display-name>routely client dev server</display-name>
-	
 	<servlet>
 		<servlet-name>deps</servlet-name>
 		<servlet-class>s2js.tools.DepsFileServlet</servlet-class>

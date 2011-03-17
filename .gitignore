@@ -2,3 +2,4 @@ boot
 lib_managed
 src_managed
 target
+examples/project/plugins/project

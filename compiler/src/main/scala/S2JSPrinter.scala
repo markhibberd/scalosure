@@ -61,11 +61,15 @@ trait S2JSPrinter {
         val lb = new ListBuffer[String]
 
         // identifying all the top-level members of the file, which translate to provide statements in closure-library terms
-        tree.children filter {
+        val provideList = tree.children filter {
             x => (x.isInstanceOf[PackageDef] || x.isInstanceOf[ClassDef] || x.isInstanceOf[ModuleDef]) && !x.symbol.isSynthetic
-        } foreach { 
-            x => lb += "goog.provide('%s');\n".format(x.symbol.fullName) 
         }
+        
+        val provideSet = provideList.foldLeft(Set.empty[String]) { 
+            (a,b) => a + "goog.provide('%s');".format(b.symbol.fullName) 
+        }
+
+        lb += provideSet.mkString
 
         // determine the necessary dependencies for requires statements
         findRequiresFrom(tree) foreach {

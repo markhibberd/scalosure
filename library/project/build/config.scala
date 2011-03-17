@@ -1,18 +1,20 @@
 import sbt._
 
-class ProjectConfig(info: ProjectInfo) extends DefaultProject(info) with AutoCompilerPlugins {
+import org.scalosure.ScalosureProject
+
+class ProjectConfig(info: ProjectInfo) extends DefaultWebProject(info) with ScalosureProject {
 
   override def repositories = Set(ScalaToolsSnapshots)
 
-  val sxr = compilerPlugin("org.scalosure" %% "scalosure-compiler" % "0.2-SNAPSHOT")
-
-  override def compileOptions = CompileOption("-P:scalosure:input:scala") ::
-    CompileOption("-P:scalosure:output:" + outputPath / "scalosure") :: 
-    super.compileOptions.toList
+  val scalosurePackages = List("scalosure", "testing")
 
   override def libraryDependencies = super.libraryDependencies ++ Set(
 
-    /* scala dependencies */
-    "org.scalosure" %% "scalosure-tools"    % "0.2-SNAPSHOT",
-    "org.scalosure" %% "scalosure-adapters" % "0.2-SNAPSHOT")
+    "org.scalosure"  %% "scalosure-tools"    % "0.2-SNAPSHOT",
+    "org.scalosure"  %% "scalosure-adapters" % "0.2-SNAPSHOT",
+    "org.scalatest"  %  "scalatest"          % "1.3" % "test",
+
+    /* java dependencies */
+    "org.eclipse.jetty"    % "jetty-webapp"          % "7.0.2.RC0" % "test",
+    "javax.servlet"        % "servlet-api"           % "2.5"       % "provided")
 }
