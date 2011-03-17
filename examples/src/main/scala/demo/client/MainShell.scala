@@ -1,4 +1,4 @@
-package demo
+package demo.client
 
 import s2js._
 import goog.dom._

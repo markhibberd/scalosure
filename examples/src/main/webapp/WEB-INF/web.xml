@@ -16,7 +16,7 @@
 		</init-param>
 		<init-param>
 			<param-name>path</param-name>
-			<param-value>/s2js</param-value>
+			<param-value>/scalosure</param-value>
 		</init-param>
 	</servlet>
 

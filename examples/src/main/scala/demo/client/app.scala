@@ -1,4 +1,4 @@
-package demo
+package demo.client
 
 import goog.dom._
 import goog.history._
