@@ -66,7 +66,7 @@ trait S2JSPrinter {
         }
         
         val provideSet = provideList.foldLeft(Set.empty[String]) { 
-            (a,b) => a + "goog.provide('%s');".format(b.symbol.fullName) 
+            (a,b) => a + "goog.provide('%s');\n".format(b.symbol.fullName) 
         }
 
         lb += provideSet.mkString
@@ -110,7 +110,7 @@ trait S2JSPrinter {
 
         if(t.symbol.isTrait) {
 
-            lb += "/** @constructor*/"
+            lb += "/** @constructor*/\n"
             lb += "%s = function() {};\n".format(className)
 
         } else {
@@ -121,7 +121,7 @@ trait S2JSPrinter {
 
             val ctorArgs = ctorDef.vparamss.flatten.map(_.symbol.nameString)
 
-            lb += "/** @constructor*/"
+            lb += "/** @constructor*/\n"
             lb += "%s = function(%s) {\n".format(className, ctorArgs.mkString(","))
 
             lb += "var self = this;\n"
