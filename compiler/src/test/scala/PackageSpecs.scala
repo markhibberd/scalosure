@@ -29,7 +29,10 @@ class PackageSpecs extends PrinterFixtureSpec {
         var self = this;
         self.name = name;
       };
-
+      A.prototype.copy$default$1 = function() {
+        var self = this;
+        return self.name;
+      };
       A.prototype.name = null;
 
       o.m1 = function() {
