@@ -160,25 +160,6 @@ class ImportSpecs extends PrinterFixtureSpec {
         
         """}
     }
-
-    it("doesn't add require statements for packages") {
-
-        parser expect {"""
-
-            import goog.ui._
-
-            object a {
-                val x = new Button("foo")
-            }
-
-        """} toBe {"""
-        
-            goog.provide('a');
-            goog.require('goog.ui.Button');
-            a.x = new goog.ui.Button('foo');
-        
-        """}
-    }
 }
 
 // vim: set ts=4 sw=4 foldmethod=syntax et:
