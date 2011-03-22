@@ -10,18 +10,16 @@ import scala.xml.Utility
 import scala.tools.nsc.Global
 import scala.util.matching.Regex
 
-//import scala.tools.nsc.symtab.Flags._
-
 trait S2JSPrinter {
   
     val global:Global
 
     import global._
-	import definitions._
+    //import definitions._
 
     def debug(name:String, thing:Any) {
-        //print(name+" ")
-        //println(thing.toString)
+        print(name+" ")
+        println(thing.toString)
     }
 
     case class RichTree(t:Tree) {
@@ -38,19 +36,19 @@ trait S2JSPrinter {
     def isLocalMember(x:Symbol):Boolean = x.isLocal
     def isCosmicMember(x:Symbol):Boolean = cosmicNames.contains(x.enclClass.fullName)
 
-	object BinaryOperator {
+    object BinaryOperator {
         def unapply(name:Name):Option[String] = Map(
-            "$eq$eq"		-> "==",
-            "$bang$eq" 		-> "!=",
-            "$greater"		-> ">",
-            "$greater$eq" 	-> ">=",
-            "$less"			-> "<",
-            "$less$eq"		-> "<=",
-            "$amp$amp"		-> "&&",
-            "$plus"		    -> "+",
-            "$minus"		-> "-",
-            "$percent"		-> "%",
-            "$bar$bar"		-> "||").get(name.toString)
+            "$eq$eq"      -> "==",
+            "$bang$eq"    -> "!=",
+            "$greater"    -> ">",
+            "$greater$eq" -> ">=",
+            "$less"       -> "<",
+            "$less$eq"    -> "<=",
+            "$amp$amp"    -> "&&",
+            "$plus"       -> "+",
+            "$minus"      -> "-",
+            "$percent"    -> "%",
+            "$bar$bar"    -> "||").get(name.toString)
     }
 
     def tree2string(tree:Tree):String = {
@@ -200,38 +198,31 @@ trait S2JSPrinter {
         case x @ Apply(TypeApply(y @ Select(Select(_, n), _), _), args) if(n.toString == "Array") =>
           args.map(buildObjectLiteral).mkString("[",",","]")
 
-        case x @ Apply(TypeApply(y @ Select(Select(_, n), _), _), args) if(n.toString.matches("(Map|HashMap)")) =>
-          "new scala.collection.mutable.HashMap(%s)".format(args.map(buildObjectLiteral).mkString("{",",","}"))
-
         case x @ Apply(TypeApply(y @ Select(Select(_, n), _), _), args) if(n.toString.matches("Tuple[0-9]+")) => 
           args.zipWithIndex map { 
             a => "'_%s':%s".format((a._2+1), a._1.toString.replace("\"", "'")) 
           } mkString("{",",","}")
 
-        //case x @ Apply(TypeApply(Select(q, n), _), args) if(q.symbol.nameString == "refArrayOps") =>
-            //val arrayName = q.asInstanceOf[ApplyImplicitView].args.head
-            //"""for(var i = 0, l = obj.length; i < l; i++) { 
-              //if(iterator.call(context, obj[i], i, obj) === breaker) return;
-            //}
-            //"""
-            //"goog.array.forEach(%s, %s, self)".format(arrayName, args.map(buildTree).mkString)
-
-        case x @ Apply(Select(q, n), args) if q.toString.matches("s2js.JsObject") => args map {
-          buildObjectLiteral
-        } mkString("{",",","}")
+        case x @ Apply(Select(q, n), args) if q.toString.matches("s2js.JsObject") => args.headOption match {
+          case Some(Typed(expr, tpt)) if tpt.toString == "_*" => expr.toString
+          case _ => args map { buildObjectLiteral } mkString("{",",","}")
+        }
 
         case x @ Apply(Select(q, n), args) if q.toString.matches("s2js.JsArray") => args map {
           buildObjectLiteral
         } mkString("[",",","]")
 
-        case x @ Apply(Select(qualifier, BinaryOperator(op)), args) =>
-            "(%s %s %s)".format(buildTree(qualifier), op, args.map(buildTree).mkString)
+        case x @ Apply(Select(qualifier, BinaryOperator(op)), args) => "(%s %s %s)".format(
+          buildTree(qualifier), op, args.map(buildTree).mkString)
 
         case x @ Apply(Select(qualifier, name), args) if name.toString.endsWith("s2js.Html") => "html"
 
         case x:ApplyToImplicitArgs => x.fun match {
-            case y => buildTree(y)
+          case y => buildTree(y)
         }
+
+        case x @ Apply(fun @ Select(q, n), args) if fun.toString == "scalosure.script.literal" =>
+          args.mkString.replace("\"", "")
 
         case x @ Apply(Select(qualifier, name), args) if qualifier.toString == "s2js.Html" =>
             "%s".format(buildXmlLiteral(args.head).mkString)
@@ -243,53 +234,64 @@ trait S2JSPrinter {
         case x @ Apply(Select(y @ Super(_, _), name), args) =>
             "%s.superClass_.%s.call(%s)".format(y.symbol.fullName, name.toString, (List("self") ++ args.map(buildTree)).mkString(","))
 
-        case x @ Apply(fun @ TypeApply(Select(q, n), _), args) if(fun.symbol.owner.nameString == "IterableLike") =>
-            "for(var _key_ in %1$s) {(%2$s)({_1:_key_, _2:%1$s[_key_]});}".format(buildTree(q), args.map(buildTree).mkString)
-
         case x @ Apply(TypeApply(f, _), args) if(f.symbol.owner.nameString == "ArrowAssoc") => 
-            "{%s}".format(buildObjectLiteral(x))
+          "{%s}".format(buildObjectLiteral(x))
+
+        case x @ Apply(TypeApply(fun @ Select(q, n), _), args) if fun.hasSymbol && fun.symbol.owner.nameString == "JsObject" => {
+          args.headOption match {
+            case Some(Typed(expr, tpt)) if tpt.toString == "_*" => expr.toString
+            case _ => args map { buildObjectLiteral } mkString("{",",","}")
+          }
+        }
+
+        case x @ Apply(fun @ Select(q, n), args) if fun.hasSymbol && fun.symbol.owner.nameString == "JsObject" => {
+          n.toString match {
+            case "update"  => "%s[%s] = %s".format(buildTree(q), buildTree(args(0)), buildTree(args(1)))
+            case _ => "for(var _key_ in %1$s) {(%2$s)({_1:_key_, _2:%1$s[_key_]});}".format(
+              buildTree(q), args.map(buildTree).mkString)
+          }
+        }
 
         case x @ Apply(fun, args) =>
 
             debug("=========================", "")
-            debug("f:2a", x)
-            debug("f:2b", fun)
+            //debug("f:2a", x)
+            //debug("f:2b", fun)
+            //debug("f:2c", args)
 
-            args foreach { x => debug("f:2c", x.getClass) }
+            val argumentList = x.symbol.paramss
 
-            def isArrowAssoc(t:Tree):Boolean = t match {
-                case y @ Apply(TypeApply(f, yargs), _) if(f.symbol.owner.nameString == "ArrowAssoc") => true
-                case _ => false
+            def buildArgs(t:Tree):List[Tree] = t match {
+              case Apply(f, xs) => buildArgs(f) ++ xs
+              case _ => Nil
             }
 
-            val arrowArgs = args filter { isArrowAssoc } map { 
-                case y @ Apply(TypeApply(Select(q, n), iargs), yargs) => buildObjectLiteral(y)
-            } mkString("{",",","}")
+            val passedArgs = (buildArgs(fun) ++ args)
 
-            def filterArgs(xs:List[Tree]) = xs.filter {
-                case y @ (TypeApply(_,_) | Select(_,_)) => !y.symbol.hasFlag(DEFAULTPARAM)
-                case y => true
+            val processedArgs = passedArgs.zip(x.symbol.paramss.flatten) map { 
+              case (passed, defined) if defined.tpe.typeSymbol.nameString.matches("""(Function0|\<byname\>)""") => "function() {%s}".format(buildTree(passed))
+              case (passed, defined) => buildTree(passed)
             }
-
-            val firstArgs = fun match {
-                case Apply(_, xs) => filterArgs(xs)
-                case _ => Nil
-            }
-
-            val filteredArgs = filterArgs(args)
 
             def ownerName(t:Tree) = if(fun.hasSymbol) Some(fun.symbol.owner.nameString) else  None
 
             val tmp = ownerName(fun) match {
                 case Some("Array" | "MapLike") => "%s[%s]"
+                case Some("JsObject") => "%s(%s)"
                 case _ => "%s(%s)"
             }
 
-            def buildApply(f:Tree, xs:List[Tree]) = tmp.format(buildTree(f), xs.map(buildTree).mkString(","))
+            def buildApply(f:Tree) = tmp.format(buildTree(f), processedArgs.mkString(","))
 
             fun match {
-                case Apply(f, xs) => buildApply(f, filterArgs(xs) ++ filteredArgs)
-                case _ => buildApply(fun, filteredArgs)
+                case TypeApply(f @ Select(_, _), _) if f.tpe.params.head.tpe.toString.matches("""\(String, [^)].*\)\*""") => {
+                  "%s(%s)".format(buildTree(f), args map { buildObjectLiteral } mkString("{",",","}"))
+                }
+                case Apply(f @ Select(_, _), _) if f.tpe.params.head.tpe.toString.matches("""\(String, [^)].*\)\*""") => {
+                  "%s(%s)".format(buildTree(f), args map { buildObjectLiteral } mkString("{",",","}"))
+                }
+                case Apply(f, xs) => buildApply(f)
+                case y => buildApply(fun)
             }
 
         case x @ TypeApply(Select(q, n), args) if(n.toString == "asInstanceOf") => buildTree(q)
@@ -306,8 +308,8 @@ trait S2JSPrinter {
                     case y => buildTree(y)
                 })
 
-        case x @ Ident(name) =>  name.toString
-            
+        case x @ Ident(name) => if(x.symbol.isLocal) x.symbol.nameString else x.symbol.fullName
+
         case x @ If(cond, thenp, elsep) =>
 
             val transformedThen = thenp match {
@@ -323,6 +325,7 @@ trait S2JSPrinter {
             "%s ? function() {\n%s}() : function() {\n%s}()".format(buildTree(cond), transformedThen, transformedElse)
 
         case x @ Function(vparams, body) =>
+            debug("f:4a", x)
             val args = vparams.map(_.symbol.nameString).mkString(",")
 
             val impl = body match {
@@ -338,29 +341,25 @@ trait S2JSPrinter {
 
         case x @ Select(qualifier, name) => qualifier match {
             case y @ New(tt) => "new " + tt.tpe.baseClasses.head.fullName
-            case y @ Ident(_) if(name.toString == "apply" && x.symbol.owner.isSynthetic) => 
-                "new " + (if(y.symbol.isLocal) y.symbol.nameString else y.symbol.fullName)
-            case y @ Ident(_) if(name.toString == "apply") => if(y.symbol.isLocal) y.symbol.nameString else y.symbol.fullName   
+            case y @ Ident(_) if(name.toString == "apply" && x.symbol.owner.isSynthetic) => "%s.$apply".format(
+              if(y.symbol.isLocal) y.symbol.nameString else y.symbol.fullName)
             case y @ Ident(_) if(y.name.toString == "browser") => name.toString
-            //case y @ Ident(_) if(name.toString == "_1") => "_key_"
-            //case y @ Ident(_) if(name.toString == "_2") => "%s[_key_]".format(y.toString)
-            case y @ Ident(_) => if(y.symbol.isLocal) y.symbol.nameString+"."+name.toString else y.symbol.fullName+"."+name.toString
+            case y @ Ident(_) if name.toString == "apply" && y.symbol.isModule => if(y.symbol.isLocal) y.symbol.nameString+"."+translateName(name) else y.symbol.fullName+"."+translateName(name)
+            case y @ Ident(_) if name.toString == "apply" => if(y.symbol.isLocal) y.symbol.nameString else y.symbol.fullName
             case y @ This(_) if(x.symbol.owner.isPackageObjectClass) => y.symbol.owner.fullName+"."+name
             case y @ This(_) if(x.symbol.owner.isModuleClass) => y.symbol.fullName+"."+name
             case y @ This(_) => "self."+name
+            case y @ Select(q, n) if name.toString == "apply" && y.symbol.isModule => if(y.symbol.isLocal) y.symbol.nameString+"."+translateName(name) else y.symbol.fullName+"."+translateName(name)
             case y @ Select(q, n) if(n.toString == "Predef" && name.toString == "println") => "console.log"
-            case y if(name.toString == "$colon$plus" && y.symbol.nameString == "genericArrayOps") => 
-                "%s.push".format(y.asInstanceOf[ApplyImplicitView].args.head)
+            case y if(name.toString == "$colon$plus" && y.symbol.nameString == "genericArrayOps") => "%s.push".format(
+              y.asInstanceOf[ApplyImplicitView].args.head)
             case y if(name.toString == "unary_$bang") => "!"+buildTree(y)
             case y if(name.toString == "apply") => buildTree(y)
-            case y if(name.toString == "any2ArrowAssoc") => 
-                buildTree(y)
+            case y if(name.toString == "any2ArrowAssoc") => buildTree(y)
             case y => buildTree(y)+"."+name
         }
 
-        case x @ Block(stats, expr) => 
-          debug("f:3", expr.getClass)
-          buildBlock(x)
+        case x @ Block(stats, expr) => buildBlock(x)
 
         case x @ This(n) => if(x.symbol.isModuleClass)  n.toString else "self"
 
@@ -380,9 +379,14 @@ trait S2JSPrinter {
         case x => x match {
             case y @ Match(_, _) => buildSwitch(y, false)
             case y @ TypeApply(fun, args) => ""
+            case y @ Typed(expr, tpt) if tpt.toString == "_*" => expr.toString
             case y => println(y.getClass); "#NOT IMPLEMENTED#"
         }
     }
+    
+    //def buildObjectIterator(t:Tree):String = {
+        //"for(var _key_ in %1$s) {(%2$s)({_1:_key_, _2:%1$s[_key_]});}".format(buildTree(q), args.map(buildTree).mkString)
+    //}
     
     def buildExpression(t:Tree):String =  buildTree(t) match {
         case z if(t.tpe.toString == "Unit") => 
@@ -392,9 +396,8 @@ trait S2JSPrinter {
     }
 
     def buildBlock(t:Block):String = {
-
         val stats = t.stats map { buildTree } map { _ + ";\n" }
-            
+        
         val expr = t.expr match {
           case x @ Function(_, _) => Some(buildTree(t.expr)) 
           case x => buildTree(x) match {
@@ -440,7 +443,7 @@ trait S2JSPrinter {
 
         var currentFile:scala.tools.nsc.io.AbstractFile = null
 
-        val thingsToIgnore = List("s2js.JsObject", "s2js.JsArray", "s2js.Html", "ClassManifest", "scala", 
+        val thingsToIgnore = List("scalosure.script", "s2js.JsObject", "s2js.JsArray", "s2js.Html", "ClassManifest", "scala", 
           "java.lang", "scala.xml", "$default$", "browser")
 
         def traverse(t:Tree):Unit = t match {
@@ -472,8 +475,6 @@ trait S2JSPrinter {
 
             case x @ DefDef(_, _, _, vparamss, _, rhs) =>
 
-                // TODO: maybe need to dive into vparamss
-
                 rhs match {
                     case y @ Block(stats, expr) => 
                         stats.foreach(traverse)
@@ -502,10 +503,15 @@ trait S2JSPrinter {
 
             case x @ Select(New(tpe), _) => tpe match {
                 case y @ Select(Select(_, _), _) => 
-                    s += y.symbol.fullName
+                  debug("f:3c", y)
+                  s += y.symbol.fullName
                 case y @ TypeTree() => 
+                  debug("f:3d", y)
+                  if(currentFile != y.symbol.sourceFile) {
                     s += y.symbol.fullName
+                  }
                 case y => 
+                    debug("f:3a", y)
                     if(currentFile != y.symbol.sourceFile) {
                         s += y.symbol.fullName
                     }
@@ -513,12 +519,14 @@ trait S2JSPrinter {
 
             case x @ Select(Select(_, _), _) if(!x.symbol.isPackage) =>
 
+                debug("f:3b", x)
+
                 if(!thingsToIgnore.exists(x.symbol.fullName.contains)) {
                     s += x.symbol.owner.fullName
                 }
 
             case x @ Select(_, _) => 
-                
+               
             case x @ Ident(name) =>
             
             case x => 
@@ -547,8 +555,14 @@ trait S2JSPrinter {
         ns.stripSuffix(".package")
     } else ns
 
+    def translateName(s:Name):String = s.toString match {
+        case "apply" => "$apply"
+        case x => x
+    }
+
     def buildName(s:Symbol):String = s.nameString match {
         case "+=" => "$plus$eq"
+        case "apply" => "$apply"
         case x => x
     }
 

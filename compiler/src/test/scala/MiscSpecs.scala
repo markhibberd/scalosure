@@ -5,6 +5,87 @@ import org.scalatest.{ Spec, BeforeAndAfterAll }
 
 class MiscSpecs extends PrinterFixtureSpec {
 
+  it("can use arrowassoc for object literals") {
+
+    testdriving = true
+
+    parser expect {"""
+
+    import s2js.JsObject
+
+    class HashMap[A](u:JsObject[A])
+
+    object HashMap {
+      def apply[A](e:(String,A)*) = new HashMap(JsObject(e:_*))
+    }
+
+    object o {
+      def start() {
+        val m1 = new HashMap(JsObject("one"->"foo","two"->"bar"))
+        val m2 = HashMap("one"->"foo","two"->"bar")
+      }
+    }
+    """} toBe {"""
+    goog.provide('HashMap');
+    goog.provide('o');
+    /** @constructor*/
+    HashMap = function(u) {
+      var self = this;
+      self.u = u;
+    };
+    HashMap.prototype.u = null;
+    HashMap.$apply = function(e) {
+      var self = this;
+      return new HashMap(e);
+    };
+    o.start = function() {
+      var self = this;
+      var m1 = new HashMap({'one':'foo','two':'bar'});
+      var m2 = HashMap.$apply({'one':'foo','two':'bar'});
+    };
+    """}
+  }
+  it("supports literal scripts") {
+
+    parser expect {"""
+    import scalosure._
+    object o {
+      def start() {
+        script.literal("console.log('foo')")
+      }
+    }
+    """} toBe {"""
+    goog.provide('o');
+    o.start = function() {
+      var self = this;
+      console.log('foo');
+    };
+    """}
+
+  }
+
+  it("adds support for a foreach on native js objects") {
+
+    parser expect {"""
+    import s2js._
+    object o {
+      def start() {
+        val f = JsObject("one"->"foo", "two"->"bar")
+        f.foreach(x => println(x._2))
+      }
+    }
+    """} toBe {"""
+    goog.provide('o');
+    o.start = function() {
+      var self = this;
+      var f = {'one':'foo','two':'bar'};
+      for(var _key_ in f) {(function(x) {
+        console.log(x._2);
+      })({_1:_key_, _2:f[_key_]});};
+    };
+    """}
+  }
+  
   ignore("can use native javascript arrays") {
 
     parser expect {"""

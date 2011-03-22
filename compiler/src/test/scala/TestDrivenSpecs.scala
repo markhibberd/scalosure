@@ -11,8 +11,21 @@ class TestDrivenSpecs extends PrinterFixtureSpec {
 
     parser expect {"""
 
-    """} toBe {"""
+    object o {
 
+      def foo(v1a:String, v1b:String = "foo")(v2: => Unit) {}
+
+      def start() {
+        foo("1a") {
+          println("foo")
+        }
+      }
+    }
+    """} toDebug {"""
+    goog.provide('o');
+    o.start = function() {
+      var self = this;
+    };
     """}
   }
 }

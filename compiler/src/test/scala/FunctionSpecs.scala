@@ -107,27 +107,6 @@ class FunctionSpecs extends PrinterFixtureSpec {
         """}
 
       }
-
-      ignore("can have native javascript implementations") {
-
-        /* don't think this can work will without pre-processing */
-
-        parser expect {"""
-        object a {
-          @s2js.Native
-          def m1(x:String) {"var y = 'foo';console.log(x+y);"}
-        }
-        """} toBe {"""
-        goog.provide('a');
-        a.m1 = function(x) {
-          var self = this;
-          var y = 'foo';
-          console.log(x+y);
-        };
-        """}
-
-      }
-
     }
 
   describe("class functions") {

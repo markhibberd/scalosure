@@ -25,6 +25,12 @@ abstract class PrinterFixtureSpec extends Spec with BeforeAndAfterAll {
             expect(cleanit(actual))(cleanit(expected))
         }
     
+        def toDebugClean(jsCode:String) {
+            println("actual: "+cleanit(actual))
+            println()
+            println("expect: "+cleanit(jsCode))
+        }
+
         def toDebug(jsCode:String) {
             println("actual: "+actual)
             println()

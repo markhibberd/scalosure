@@ -5,7 +5,7 @@ import org.scalatest.{ Spec, BeforeAndAfterAll }
 
 class MapSpecs extends PrinterFixtureSpec {
 
-    describe("maps") {
+    ignore("maps") {
 
         it("can have nested maps") {
 

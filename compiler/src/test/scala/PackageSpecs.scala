@@ -34,7 +34,7 @@ class PackageSpecs extends PrinterFixtureSpec {
 
       o.m1 = function() {
         var self = this;
-        var a = new A('name');
+        var a = A.$apply('name');
       };
 
       """}
