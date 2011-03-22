@@ -2,10 +2,16 @@ package s2js
 
 case class Html(elem:xml.Elem) extends browser.Element
 
-class JsObject
+class JsObject[A] {
+  var x:A = _
+  def foreach(fn:((String,A))=>Unit):Unit = {}
+  def apply(name:String):A = x
+  def update(key:String, value:A):Unit = {}
+}
 
 object JsObject {
-  def apply(elems:(String,Any)*) = null
+  def apply[A](elems:(String,A)*):JsObject[A] = new JsObject[A]
+  def empty[A]():JsObject[A] = new JsObject[A]
 }
 
 class JsArray {
@@ -19,3 +25,4 @@ class JsArray {
 object JsArray {
   def apply(elems:Any*) = new JsArray
 }
+
