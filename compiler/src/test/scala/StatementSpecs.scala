@@ -214,30 +214,39 @@ class StatementSpecs extends PrinterFixtureSpec {
             parser expect {"""
 
             object o1 {
-                def m1[T](v1:String, v2:(T)=>Unit = null, v3:String="") {}
-                def m2(v1:String, v2:(String)=>Unit = null, v3:String="") {}
+                def m1[T](v1:String, v2:String = "") {}
+                def m2(v1:String, v2:String = "") {}
                 def m3() {
                     m1("foo")
-                    m1("foo", (v2:String) => {})
-                    m1("foo", (v2:String) => {}, "bar")
                     m2("foo")
-                    m2("foo", (v2:String) => {})
-                    m2("foo", (v2:String) => {}, "bar")
+                    m1("foo", "bar")
+                    m2("foo", "bar")
                 }
             }
 
             """} toBe {"""
 
             goog.provide('o1');
-            o1.m1 = function(v1,v2,v3) {var self = this;};
-            o1.m2 = function(v1,v2,v3) {var self = this;};
-            o1.m3 = function() {var self = this;
-                o1.m1('foo');
-                o1.m1('foo',function(v2) {});
-                o1.m1('foo',function(v2) {},'bar');
-                o1.m2('foo');
-                o1.m2('foo',function(v2) {});
-                o1.m2('foo',function(v2) {},'bar');
+            o1.m2$default$2 = function() {
+                var self = this;
+                return '';
+            };
+            o1.m1$default$2 = function() {
+                var self = this;
+                return '';
+            };
+            o1.m1 = function(v1,v2) {
+                var self = this;
+            };
+            o1.m2 = function(v1,v2) {
+                var self = this;
+            };
+            o1.m3 = function() {
+                var self = this;
+                o1.m1('foo',o1.m1$default$2);
+                o1.m2('foo',o1.m2$default$2);
+                o1.m1('foo','bar');
+                o1.m2('foo','bar');
             };
 
             """}
