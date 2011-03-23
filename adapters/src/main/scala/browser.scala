@@ -71,3 +71,20 @@ class Storage {
     def removeItem(key:String) {}
     def clear() {}
 }
+
+class XMLHttpRequest {
+  var readyState:Int = 0
+  var responseText:String = ""
+  var responseXML:String = ""
+  var status:Int = 0
+  var statusText:String = ""
+
+  def abort():Unit = {}
+  def getResponseHeader(header:String):String = ""
+  def open(method:String, url:String, async:Boolean = true, username:String = "", password:String = ""):Unit = {}
+  def send(data:String):Unit = {}
+  def setRequestHeader(header:String, value:String):Unit = {}
+
+  var onreadystatechange:Function0[Unit] = null
+  var onerror:Function0[Unit] = null
+}
