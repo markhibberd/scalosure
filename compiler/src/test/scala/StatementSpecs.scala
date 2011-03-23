@@ -216,11 +216,12 @@ class StatementSpecs extends PrinterFixtureSpec {
             object o1 {
                 def m1[T](v1:String, v2:String = "") {}
                 def m2(v1:String, v2:String = "") {}
-                def m3() {
+                def m3(v1:String, v2:String = null) {}
+                def m4() {
                     m1("foo")
                     m2("foo")
                     m1("foo", "bar")
-                    m2("foo", "bar")
+                    m3("foo")
                 }
             }
 
@@ -241,12 +242,15 @@ class StatementSpecs extends PrinterFixtureSpec {
             o1.m2 = function(v1,v2) {
                 var self = this;
             };
-            o1.m3 = function() {
+            o1.m3 = function(v1,v2) {
+                var self = this;
+            };
+            o1.m4 = function() {
                 var self = this;
                 o1.m1('foo',o1.m1$default$2);
                 o1.m2('foo',o1.m2$default$2);
                 o1.m1('foo','bar');
-                o1.m2('foo','bar');
+                o1.m3('foo',o1.m3$default$2);
             };
 
             """}

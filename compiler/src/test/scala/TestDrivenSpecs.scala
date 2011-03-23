@@ -10,15 +10,8 @@ class TestDrivenSpecs extends PrinterFixtureSpec {
     testdriving = true
 
     parser expect {"""
-
     object o {
-
-      def foo(v1a:String, v1b:String = "foo")(v2: => Unit) {}
-
       def start() {
-        foo("1a") {
-          println("foo")
-        }
       }
     }
     """} toDebug {"""
