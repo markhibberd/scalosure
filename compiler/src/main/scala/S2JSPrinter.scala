@@ -17,8 +17,8 @@ trait S2JSPrinter {
     import global._
 
     def debug(name:String, thing:Any) {
-        print(name+" ")
-        println(thing.toString)
+        //print(name+" ")
+        //println(thing.toString)
     }
 
     case class RichTree(t:Tree) {
