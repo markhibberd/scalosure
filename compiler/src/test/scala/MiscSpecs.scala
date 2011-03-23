@@ -5,6 +5,24 @@ import org.scalatest.{ Spec, BeforeAndAfterAll }
 
 class MiscSpecs extends PrinterFixtureSpec {
 
+  it("ignore browser namespace") {
+
+    parser expect {"""
+    import browser._
+    object o {
+      def start() {
+        val x = new XMLHttpRequest
+      }
+    }
+    """} toBe {"""
+    goog.provide('o');
+    o.start = function() {
+      var self = this;
+      var x = new XMLHttpRequest();
+    };
+    """}
+  }
+
   it("can use arrowassoc for object literals") {
 
     testdriving = true
