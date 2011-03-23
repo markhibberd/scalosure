@@ -17,8 +17,8 @@ trait S2JSPrinter {
     import global._
 
     def debug(name:String, thing:Any) {
-        //print(name+" ")
-        //println(thing.toString)
+        print(name+" ")
+        println(thing.toString)
     }
 
     case class RichTree(t:Tree) {
@@ -337,8 +337,8 @@ trait S2JSPrinter {
 
         case x @ Select(qualifier, name) if(name.toString == "package") => buildTree(qualifier)
 
-        case x @ Select(qualifier, name) => qualifier match {
-            case y @ New(tt) => "new " + tt.tpe.baseClasses.head.fullName
+        case x @ Select(qualifier, name) => debug("f:4a", x.qualifier.getClass); qualifier match {
+            case y @ New(tt) => "new " + (if(tt.toString.startsWith("browser")) tt.symbol.nameString else tt.tpe.baseClasses.head.fullName)
             case y @ Ident(_) if(name.toString == "apply" && x.symbol.owner.isSynthetic) => "%s.$apply".format(
               if(y.symbol.isLocal) y.symbol.nameString else y.symbol.fullName)
             case y @ Ident(_) if(y.name.toString == "browser") => name.toString
@@ -454,7 +454,8 @@ trait S2JSPrinter {
                 parents.foreach {
                     y => if(!thingsToIgnore.exists(y.symbol.fullName.contains)) {
                         if(currentFile != y.symbol.sourceFile) {
-                            s += y.symbol.fullName
+                          debug("f:3a", x)
+                          s += y.symbol.fullName
                         }
                     } 
                 }
@@ -487,7 +488,7 @@ trait S2JSPrinter {
             case x @ Apply(fun, args) =>
 
                 if(fun.toString.contains("scala.Array")) {
-                    s += "goog.array"
+                  s += "goog.array"
                 } else if(!thingsToIgnore.exists(fun.symbol.fullName.contains)) {
                     traverse(fun)
                 }
@@ -495,32 +496,29 @@ trait S2JSPrinter {
                 args.foreach(traverse)
 
             case x @ Select(q, _) if(q.toString.endsWith("package")) =>
+
                 if(!thingsToIgnore.exists(x.symbol.fullName.contains)) {
-                    s += q.symbol.owner.fullName
+                  s += q.symbol.owner.fullName
                 }
 
             case x @ Select(New(tpe), _) => tpe match {
+
                 case y @ Select(Select(_, _), _) => 
-                  debug("f:3c", y)
                   s += y.symbol.fullName
                 case y @ TypeTree() => 
-                  debug("f:3d", y)
                   if(currentFile != y.symbol.sourceFile) {
                     s += y.symbol.fullName
                   }
                 case y => 
-                    debug("f:3a", y)
-                    if(currentFile != y.symbol.sourceFile) {
-                        s += y.symbol.fullName
-                    }
+                  if(currentFile != y.symbol.sourceFile) {
+                    s += y.symbol.fullName
+                  }
             }
 
             case x @ Select(Select(_, _), _) if(!x.symbol.isPackage) =>
 
-                debug("f:3b", x)
-
                 if(!thingsToIgnore.exists(x.symbol.fullName.contains)) {
-                    s += x.symbol.owner.fullName
+                  s += x.symbol.owner.fullName
                 }
 
             case x @ Select(_, _) => 
