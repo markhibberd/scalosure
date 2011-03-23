@@ -87,14 +87,13 @@ trait S2JSPrinter {
         case x =>  ""
     }
 
+    def isDefaultNull(t:DefDef):Boolean = !(t.symbol.nameString.contains("default$") && t.rhs.toString == "null") && !t.mods.isAccessor && !t.symbol.isConstructor
+
     def buildPackageLevelItemMember(t:Tree):String = t match {
-        case x @ DefDef(mods, _, _, _, _, _) if(!mods.isAccessor && !x.symbol.isConstructor) => 
-            buildMethod(x, x.symbol.owner.isPackageObjectClass)
-        case x @ ValDef(_, _, _, _) => 
-            buildField(x, x.symbol.owner.isPackageObjectClass)
-        case x @ ModuleDef(_, _, _) =>
-            buildPackageLevelItem(x)
-        case x =>  ""
+      case x @ DefDef(mods, _, _, _, _, rhs) if isDefaultNull(x) => buildMethod(x, x.symbol.owner.isPackageObjectClass)
+      case x @ ValDef(_, _, _, _) => buildField(x, x.symbol.owner.isPackageObjectClass)
+      case x @ ModuleDef(_, _, _) => buildPackageLevelItem(x)
+      case x =>  ""
     }
 
     def buildClass(t:ClassDef):String = {
