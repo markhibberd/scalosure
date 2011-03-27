@@ -1,3 +1,5 @@
-package p1.a
+package p1
 
-class Foo
+package object a {
+  def foo() {}
+}
