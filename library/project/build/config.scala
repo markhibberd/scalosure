@@ -6,7 +6,7 @@ class ProjectConfig(info: ProjectInfo) extends DefaultWebProject(info) with Scal
 
   override def repositories = Set(ScalaToolsSnapshots)
 
-  val scalosurePackages = List("scalosure", "testing")
+  val scalosurePackages = List("scalosure", "testing", "experimental")
 
   override def libraryDependencies = super.libraryDependencies ++ Set(
 

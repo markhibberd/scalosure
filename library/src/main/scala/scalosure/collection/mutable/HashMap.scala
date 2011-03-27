@@ -1,10 +1,8 @@
-package scalosure.collection
+package scalosure.collection.mutable
 
 import s2js._
 
 class HashMap[A](underlying:JsObject[A]=JsObject.empty[A]) {
-
-  def oof():Unit = {}
 
   def +=(kv:(String,A)):Unit = push(kv._1, kv._2)
 
@@ -26,6 +24,10 @@ class HashMap[A](underlying:JsObject[A]=JsObject.empty[A]) {
     val newmap = new HashMap[A](JsObject.empty[A])
     underlying foreach { x => if(fn(x)) newmap.push(x._1, x._2) }
     newmap
+  }
+
+  def get(key:String):A = {
+    underlying(key).asInstanceOf[A]
   }
 }
 

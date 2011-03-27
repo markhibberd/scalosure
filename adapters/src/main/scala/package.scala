@@ -20,6 +20,7 @@ class JsArray {
   def map(fn:(Any, Long, JsArray)=>Any) = new JsArray
   def filter(fn:(Any, Long, JsArray)=>Boolean) = new JsArray
   def some(fn:(Any, Long, JsArray)=>Boolean) = false
+  def push(x:Any):Unit = {}
 }
 
 object JsArray {

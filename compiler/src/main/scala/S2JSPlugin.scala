@@ -50,9 +50,9 @@ class S2JSPlugin (val global:Global) extends Plugin {
                 if(needsProcessing(unit.body.symbol)) {
 
                     val path = unit.body.symbol.fullName.replace('.', '/')
-                    val fullPath = unit.source.file.path
 
-                    val newFilePath = output+"/"+fullPath.slice(fullPath.indexOfSlice(path), fullPath.size).replace(".scala",".js")
+                    val fullPath = unit.source.file.path
+                    val newFilePath = output+"/"+fullPath.slice(fullPath.lastIndexOfSlice(path), fullPath.size).replace(".scala",".js")
                     new File(newFilePath).getParentFile.mkdirs
 
                     var stream = new FileWriter(newFilePath)
