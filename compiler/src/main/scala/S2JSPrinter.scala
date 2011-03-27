@@ -17,8 +17,8 @@ trait S2JSPrinter {
     import global._
 
     def debug(name:String, thing:Any) {
-        print(name+" ")
-        println(thing.toString)
+        //print(name+" ")
+        //println(thing.toString)
     }
 
     case class RichTree(t:Tree) {
@@ -461,9 +461,11 @@ trait S2JSPrinter {
 
         var currentFile:scala.tools.nsc.io.AbstractFile = null
 
-        val thingsToIgnore = List("scalosure.script", "s2js.JsObject", "s2js.JsArray", "s2js.Html", "ClassManifest", "scala", 
-          "java.lang", "scala.xml", "$default$", "browser")
+        val thingsToIgnore = List("scalosure.script", "s2js.JsObject", "s2js.JsArray", "s2js.Html", "ClassManifest", "scala.runtime.AbstractFunction1",
+          "scala.Product", "scala.ScalaObject", "java.lang", "scala.xml", "$default$", "browser")
 
+        def buildName(s:Symbol):String = s.fullName.replace("scala", "scalosure")
+          
         def traverse(t:Tree):Unit = t match {
 
             // check the body of a class
@@ -474,7 +476,7 @@ trait S2JSPrinter {
                 parents.foreach {
                     y => if(!thingsToIgnore.exists(y.symbol.fullName.contains)) {
                         if(currentFile != y.symbol.sourceFile) {
-                          s += y.symbol.fullName
+                          s += buildName(y.symbol)
                         }
                     } 
                 }
@@ -517,27 +519,27 @@ trait S2JSPrinter {
             case x @ Select(q, _) if(q.toString.endsWith("package")) =>
 
                 if(!thingsToIgnore.exists(x.symbol.fullName.contains)) {
-                  s += q.symbol.owner.fullName
+                  s += buildName(q.symbol.owner)
                 }
 
             case x @ Select(New(tpe), _) => tpe match {
 
                 case y @ Select(Select(_, _), _) => 
-                  s += y.symbol.fullName
+                  s += buildName(y.symbol)
                 case y @ TypeTree() => 
                   if(currentFile != y.symbol.sourceFile) {
-                    s += y.symbol.fullName
+                    s += buildName(y.symbol)
                   }
                 case y => 
                   if(currentFile != y.symbol.sourceFile) {
-                    s += y.symbol.fullName
+                    s += buildName(y.symbol)
                   }
             }
 
             case x @ Select(Select(_, _), _) if(!x.symbol.isPackage) =>
 
                 if(!thingsToIgnore.exists(x.symbol.fullName.contains)) {
-                  s += x.symbol.owner.fullName
+                  s += buildName(x.symbol.owner)
                 }
 
             case x @ Select(_, _) => 
