@@ -82,28 +82,6 @@ class MiscSpecs extends PrinterFixtureSpec {
 
   }
 
-  it("adds support for a foreach on native js objects") {
-
-    parser expect {"""
-    import s2js._
-    object o {
-      def start() {
-        val f = JsObject("one"->"foo", "two"->"bar")
-        f.foreach(x => println(x._2))
-      }
-    }
-    """} toBe {"""
-    goog.provide('o');
-    o.start = function() {
-      var self = this;
-      var f = {'one':'foo','two':'bar'};
-      for(var _key_ in f) {(function(x) {
-        console.log(x._2);
-      })({_1:_key_, _2:f[_key_]});};
-    };
-    """}
-  }
-  
   ignore("can use native javascript arrays") {
 
     parser expect {"""

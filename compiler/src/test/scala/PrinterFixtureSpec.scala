@@ -39,10 +39,12 @@ abstract class PrinterFixtureSpec extends Spec with BeforeAndAfterAll {
                 val pw = new PrintWriter(new BufferedWriter(new FileWriter("testdriven.html")));
                 pw.print(<html>
                     <head>
+                        <script type="text/javascript" src="scalosure.js"></script>
                         <script type="text/javascript" src="/home/erick/projects/google-closure-library/closure/goog/base.js"></script>
                     </head>
                     <body>
                         <script type="text/javascript">
+                            scalosureInit();
                             {actual}
                             o.start();
                         </script>
