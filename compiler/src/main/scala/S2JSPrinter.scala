@@ -633,11 +633,13 @@ trait S2JSPrinter {
                   s += buildName(x.symbol.owner)
                 }
 
-            case x @ Select(_, _) => 
+            case x @ Select(_, _) => if(!thingsToIgnore.exists(x.symbol.fullName.contains)) {
+              s += buildName(x.symbol.owner)
+            }
                
             case x @ Ident(name) =>
             
-            case x => 
+            case x =>
                 x.children.foreach(traverse)
         }
 
