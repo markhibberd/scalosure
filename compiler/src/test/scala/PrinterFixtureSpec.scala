@@ -25,6 +25,8 @@ abstract class PrinterFixtureSpec extends Spec with BeforeAndAfterAll {
             expect(cleanit(actual))(cleanit(expected))
         }
     
+        def toDebugNone(jsCode:String) { }
+
         def toDebugClean(jsCode:String) {
             println("actual: "+cleanit(actual))
             println()
@@ -36,20 +38,8 @@ abstract class PrinterFixtureSpec extends Spec with BeforeAndAfterAll {
             println()
             println("expect: "+jsCode)
             if(testdriving) {
-                val pw = new PrintWriter(new BufferedWriter(new FileWriter("testdriven.html")));
-                pw.print(<html>
-                    <head>
-                        <script type="text/javascript" src="scalosure.js"></script>
-                        <script type="text/javascript" src="/home/erick/projects/google-closure-library/closure/goog/base.js"></script>
-                    </head>
-                    <body>
-                        <script type="text/javascript">
-                            scalosureInit();
-                            {actual}
-                            o.start();
-                        </script>
-                    </body>
-                </html>.toString)
+                val pw = new PrintWriter(new BufferedWriter(new FileWriter("src/test/resources/testdriven.js")));
+                pw.print(actual)
                 pw.close
             }
         }
