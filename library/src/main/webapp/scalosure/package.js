@@ -1,5 +1,14 @@
 goog.provide('scalosure');
 
+scalosure.inherits = function(childCtor, parentCtor) {
+	/** @constructor */
+	function tempCtor() {};
+	tempCtor.prototype = parentCtor.prototype;
+	childCtor.superClass = parentCtor.prototype;
+	childCtor.prototype = new tempCtor();
+	childCtor.prototype.constructor = childCtor;
+};
+
 ScalosureObject = function() {};
 
 scalosure.init = function() {
@@ -169,17 +178,75 @@ scalosure.init = function() {
 	};
 
 	Object.prototype.isInstanceOf = function(type) {
-		return this instanceof type;
+		if(this instanceof Object) {
+			return this instanceof type;
+		} else {
+			return typeof this == type;
+		}
 	};
-
-}
-
-scalosure.inherits = function(childCtor, parentCtor) {
-	/** @constructor */
-	function tempCtor() {};
-	tempCtor.prototype = parentCtor.prototype;
-	childCtor.superClass = parentCtor.prototype;
-	childCtor.prototype = new tempCtor();
-	childCtor.prototype.constructor = childCtor;
 };
 
+scalosure.matchit = function(thing, thingInfo) {
+
+	var abuilder = [];
+	var rst = true;
+
+	var extract = function(matchee, matcher) {
+
+		var type = matcher.type;
+
+		if(type == String || type == Number || type == Boolean) {
+
+			if(matcher.cond != undefined && (matchee != matcher.cond)) {
+				rst = false;
+			} else {
+				if(matcher.bind) abuilder.push(matchee);
+			}
+
+		} else {
+
+			// matchee is an object of some type
+			if(matchee.isInstanceOf(type)) {
+
+				if(matcher.bind) abuilder.push(matchee);
+
+				// unapply extracts the object into an Option of type tuple or primative(String,Number,Boolean), 
+				// which is then applied to a function.
+				if(type.unapply != undefined) {
+
+					var extracted = type.unapply(matchee);
+
+					extracted.foreach(function(m) {
+
+						// extracted object is a tuple, so process it's fields
+						var fieldTypes = matcher.children;
+
+						for(var i = 0; i < fieldTypes.length; i++) {
+
+							var field = m;
+
+							if(typeof m == 'object') field = m['_'+(i+1)];
+
+							extract(field, fieldTypes[i]);
+						}
+					});
+				} else {
+					if(matcher.bind) abuilder.push(matchee);
+				}
+			} 
+		}
+
+
+		return rst;
+	}
+
+	extract(thing, thingInfo)
+
+	if(rst) {
+		return abuilder;
+	} else {
+		return false;
+	}
+};
+
+scalosure.bitbucket = null;
