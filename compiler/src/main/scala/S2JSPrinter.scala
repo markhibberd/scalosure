@@ -10,6 +10,14 @@ import scala.xml.Utility
 import scala.tools.nsc.Global
 import scala.util.matching.Regex
 
+abstract class JsType
+case class JsObject(items:List[(String, JsType)]) extends JsType
+case class JsArray(items:List[JsType]) extends JsType
+case class JsString(value:String) extends JsType
+case class JsNumber(value:Number) extends JsType
+case class JsFunction(value:String) extends JsType
+case class JsBoolean(value:Boolean) extends JsType
+
 trait S2JSPrinter {
   
     val global:Global
@@ -52,8 +60,6 @@ trait S2JSPrinter {
 
     def tree2string(tree:Tree):String = {
 
-        debug("f:1", tree)
-
         // using a list buffer for simplicity and to add hard returns for formatting
         val lb = new ListBuffer[String]
 
@@ -80,11 +86,19 @@ trait S2JSPrinter {
         lb.mkString
     }
 
+    def isAnIgnoredMember(tree:Tree):Boolean = List("readResolve", "copy$default$1", "this").contains(tree.symbol.nameString)
+
     def buildPackageLevelItem(t:Tree):String = t match {
         case x @ ClassDef(_, _, _, _) => buildClass(x)
         case x @ ModuleDef(_, _, Template(_, _, body)) if(!x.symbol.hasFlag(SYNTHETIC)) => body.map(buildPackageLevelItemMember).mkString
+        case x @ ModuleDef(_, _, Template(_, _, body)) if(x.symbol.hasFlag(SYNTHETIC)) => body filterNot { isAnIgnoredMember } map { buildSyntheticMember } mkString
         case x @ PackageDef(_, stats) => stats.map(buildPackageLevelItemMember).mkString
         case x =>  ""
+    }
+
+    def buildSyntheticMember(t:Tree):String = t match {
+      case x @ DefDef(mods, _, _, _, _, rhs) => buildMethod(x, x.symbol.owner.isPackageObjectClass)
+      case x => "nonthing"
     }
 
     def isDefaultNull(t:DefDef):Boolean = !(t.symbol.nameString.contains("default$") && t.rhs.toString == "null") && !t.mods.isAccessor && !t.symbol.isConstructor
@@ -106,7 +120,7 @@ trait S2JSPrinter {
 
         if(t.symbol.isTrait) {
 
-            lb += "/** @constructor*/\n"
+            lb += "\n/** @constructor*/\n"
             lb += "%s = function() {};\n".format(className)
 
         } else {
@@ -139,7 +153,7 @@ trait S2JSPrinter {
                 case x => 
             }
 
-            t.impl.body foreach {
+            t.impl.body filterNot { isAnIgnoredMember } foreach {
                 case x @ Apply(fun, args) => lb += buildTree(x)+";\n"
                 case x @ ClassDef(_, _, _, _) => lb += buildClass(x)
                 case x =>
@@ -244,11 +258,6 @@ trait S2JSPrinter {
 
         case x @ Apply(fun, args) =>
 
-            debug("=========================", "")
-            debug("f:2a", x)
-            //debug("f:2b", fun)
-            //debug("f:2c", fun.getClass)
-
             val argumentList = x.symbol.paramss
 
             def buildArgs(t:Tree):List[Tree] = t match {
@@ -302,38 +311,23 @@ trait S2JSPrinter {
                 case f @ Select(_, _) if isArrayArg(f) => {
                   "%s(%s)".format(buildTree(f), args map { buildObjectLiteral } mkString("[",",","]"))
                 }
-                case y => debug("f:2c", y); buildApply(fun)
+                case y => buildApply(fun)
             }
 
         case x @ TypeApply(Select(q, n), args) if(n.toString == "asInstanceOf") => buildTree(q)
 
         case x @ TypeApply(fun, args) => buildTree(fun)
 
-        case x @ ValDef(mods, name, tpt, rhs) if(x.symbol.isLocal) =>
-
-            "var %s = %s".format(
-                x.symbol.nameString, 
-                rhs match {
-                    case y @ Match(_, _) => buildSwitch(y, true)
-                    case y @ Select(q, n) if(n.toString == "unary_$bang") => "!"+buildTree(q)
-                    case y => buildTree(y)
-                })
+        case x @ ValDef(mods, name, tpt, rhs) if(x.symbol.isLocal) => "var %s = %s".format(
+          x.symbol.nameString, rhs match {
+            case y @ Match(_, _) => "scalosure.bitbucket = %s".format(buildSwitch(y))
+            case y @ Select(q, n) if n.toString == "unary_$bang" => "!"+buildTree(q)
+            case y => buildTree(y)
+          })
 
         case x @ Ident(name) => if(x.symbol.isLocal) x.symbol.nameString else x.symbol.fullName
 
-        case x @ If(cond, thenp, elsep) =>
-
-            val transformedThen = thenp match {
-                case y @ Block(_, _) => buildBlock(y)
-                case y => buildTree(y)+";\n"
-            }
-
-            val transformedElse = elsep match {
-                case y @ Block(_, _) => buildBlock(y)
-                case y => buildTree(y)+";\n"
-            }
-
-            "%s ? function() {\n%s}() : function() {\n%s}()".format(buildTree(cond), transformedThen, transformedElse)
+        case x @ If(cond, thenp, elsep) => buildIf(x, (x.tpe.typeSymbol.nameString != "Unit"))
 
         case x @ Function(vparams, body) =>
             val args = vparams.map(_.symbol.nameString).mkString(",")
@@ -349,22 +343,22 @@ trait S2JSPrinter {
 
         case x @ Select(qualifier, name) if(name.toString == "package") => buildTree(qualifier)
 
-        case x @ Select(qualifier, name) => debug("f:3a", qualifier + ": " + qualifier.getClass); qualifier match {
-            case y @ New(tt) => debug("f:3b", tt.symbol.fullName); "new " + (if(tt.toString.startsWith("browser")) tt.symbol.nameString else scala2scalosure(tt.symbol))
-            case y @ Ident(_) if(name.toString == "apply" && (x.symbol.owner.isSynthetic || x.symbol.owner.nameString == "JsObject")) => debug("f:3c", y); "%s.$apply".format(
+        case x @ Select(qualifier, name) => qualifier match {
+            case y @ New(tt) => "new " + (if(tt.toString.startsWith("browser")) tt.symbol.nameString else scala2scalosure(tt.symbol))
+            case y @ Ident(_) if(name.toString == "apply" && (x.symbol.owner.isSynthetic || x.symbol.owner.nameString == "JsObject")) => "%s.$apply".format(
               if(y.symbol.isLocal) y.symbol.nameString else y.symbol.fullName)
-            case y @ Ident(_) if(y.name.toString == "browser") => debug("f:3d", y); name.toString
-            case y @ Ident(_) if name.toString == "apply" && y.symbol.isModule => debug("f:3e", y); if(y.symbol.isLocal) y.symbol.nameString+"."+translateName(name) else y.symbol.fullName+"."+translateName(name)
-            case y @ Ident(_) if name.toString == "apply" => debug("f:3f", y.tpe); if(y.symbol.isLocal) y.symbol.nameString else y.symbol.fullName
-            case y @ This(_) if(x.symbol.owner.isPackageObjectClass) => debug("f:3g", y.tpe); y.symbol.owner.fullName+"."+name
-            case y @ This(_) if(x.symbol.owner.isModuleClass) => debug("f:3h", y.tpe); y.symbol.fullName+"."+name
-            case y @ This(_) => debug("f:3i", y.tpe); "self."+name
-            case y @ Select(q, n) if name.toString == "apply" && y.symbol.isModule => debug("f:3j", y.tpe); if(y.symbol.isLocal) {
+            case y @ Ident(_) if(y.name.toString == "browser") => name.toString
+            case y @ Ident(_) if name.toString == "apply" && y.symbol.isModule => if(y.symbol.isLocal) y.symbol.nameString+"."+translateName(name) else y.symbol.fullName+"."+translateName(name)
+            case y @ Ident(_) if name.toString == "apply" => if(y.symbol.isLocal) y.symbol.nameString else y.symbol.fullName
+            case y @ This(_) if(x.symbol.owner.isPackageObjectClass) => y.symbol.owner.fullName+"."+name
+            case y @ This(_) if(x.symbol.owner.isModuleClass) => y.symbol.fullName+"."+name
+            case y @ This(_) => "self."+name
+            case y @ Select(q, n) if name.toString == "apply" && y.symbol.isModule => if(y.symbol.isLocal) {
               y.symbol.nameString.replace("scala", "scalosure")+"."+translateName(name) 
             } else {
               scala2scalosure(y.symbol)+"."+translateName(name)
             }
-            case y @ Select(q, n) if name.toString == "apply" => debug("f:3k", y.tpe); if(y.symbol.isLocal) {
+            case y @ Select(q, n) if name.toString == "apply" => if(y.symbol.isLocal) {
               buildTree(y)+"."+translateName(name) 
             } else {
               buildTree(y)+"."+translateName(name)
@@ -373,9 +367,9 @@ trait S2JSPrinter {
             case y if(name.toString == "$colon$plus" && y.symbol.nameString == "genericArrayOps") => "%s.push".format(
               y.asInstanceOf[ApplyImplicitView].args.head)
             case y if(name.toString == "unary_$bang") => "!"+buildTree(y)
-            case y if(name.toString == "apply") => debug("f:3l", y.tpe); buildTree(y)
+            case y if(name.toString == "apply") => buildTree(y)
             case y if(name.toString == "any2ArrowAssoc") => buildTree(y)
-            case y => debug("f:3m", y.tpe); buildTree(y)+"."+name
+            case y => buildTree(y)+"."+name
         }
 
         case x @ Block(stats, expr) => buildBlock(x)
@@ -399,10 +393,11 @@ trait S2JSPrinter {
             "while(%s) {%s}".format(buildTree(cond), transformedThen)
 
         case x => x match {
-            case y @ Match(_, _) => buildSwitch(y, false)
+            case y @ Match(_, _) => buildSwitch(y)
             case y @ TypeApply(fun, args) => ""
             case y @ Typed(expr, tpt) if tpt.toString == "_*" => expr.toString
-            case y => println(y.getClass); "#NOT IMPLEMENTED#"
+            case y:TypeTree => "typetree"
+            case y => "#NOT IMPLEMENTED#"
         }
     }
     
@@ -414,6 +409,7 @@ trait S2JSPrinter {
     }
 
     def buildBlock(t:Block):String = {
+
         val stats = t.stats map { buildTree } map { _ + ";\n" }
         
         val expr = t.expr match {
@@ -428,31 +424,125 @@ trait S2JSPrinter {
         stats.mkString + expr.getOrElse("")
     }
 
-    def buildSwitch(t:Tree, hasReturn:Boolean):String = t match {
+    def buildIf(t:If, hasReturn:Boolean):String = {
 
-        case x @ Match(selector, cases) => 
+      def buildTreeReturn(t2:Tree) = if(hasReturn) "return %s".format(buildTree(t2)) else buildTree(t2)
 
-            val theSwitch = "switch(%s) {\n%s}".format(
-                buildTree(selector), 
-                cases.map(y => buildSwitch(y, hasReturn)).mkString)
+      val transformedThen = t.thenp match {
+          case y @ Block(_, _) => buildBlock(y)
+          case y => buildTreeReturn(y)+";\n"
+      }
 
-            if(hasReturn)
-                "function() {\n%s}()".format(theSwitch)
-            else theSwitch
+      val transformedElse = t.elsep match {
+          case y @ Block(_, _) => buildBlock(y)
+          case y => buildTreeReturn(y)+";\n"
+      }
 
+      "%s ? function() {\n%s}() : function() {\n%s}()".format(buildTree(t.cond), transformedThen, transformedElse)
+    }
 
-        case x @ CaseDef(path, guard, body) =>
-            
-            val part = path match {
-                case Ident(n) if(n.toString == "_") => "default"
-                case _ => "case %s".format(buildTree(path))
+    def buildSwitch(t:Tree):String = {
+
+      val sb = new StringBuilder
+
+      sb.append("\nvar matched;\n")
+      val Match(selector, cases) = t
+
+      def buildTheBody(body:Tree) = "return %s".format(buildTree(body)) 
+
+      cases.zipWithIndex foreach {
+
+        case (a, b) => {
+
+          val tmp = b match {
+            case 0 => "if(%s) {\n%s\n}"
+            case x => "else if(%s) {\n%s\n}"
+          }
+
+          a match {
+            case CaseDef(pat, guard, body) => pat match {
+              case x @ Literal(Constant(_)) => 
+                sb.append(tmp.format(buildTree(selector) + " == " + buildTree(x), buildTheBody(body)))
+              case x @ Ident(n) if(n.toString == "_") => sb.append(" else {%s}".format(buildTheBody(body)))
+              case x @ Bind(n, b) if b.tpe.toString == "String" => sb.append(
+                tmp.format("typeof %s == 'string'".format(buildTree(selector)), buildTheBody(body)))
+              case x @ Bind(n, b) if b.tpe.toString.matches("(Int|Long|Double|java.lang.Number)") => sb.append(
+                tmp.format("typeof %s == 'number'".format(buildTree(selector)), buildTheBody(body)))
+              case x @ Bind(n, b) if b.tpe.toString == "Boolean" => sb.append(
+                tmp.format("typeof %s == 'boolean'".format(buildTree(selector)), buildTheBody(body)))
+              case x @ Bind(n, b) if b.tpe.toString == "Any" => sb.append(" else {%s}".format(buildTheBody(body)))
+              case x @ Bind(n, Typed(expr, tpt)) => sb.append(
+                tmp.format("typeof %s == 'string'".format(buildTree(selector)), "return function(%s) {%s}(%s)".format(n.toString, buildTheBody(body), buildTree(selector))))
+              case x @ Bind(n, b) =>
+                val bindList = buildMatchBindList(x)
+                val bindListArgs = bindList.mkString(",")
+                val bindListValues = bindList.zipWithIndex.map { y => "matched[%s]".format(y._2) } mkString(",")
+                sb.append(
+                  tmp.format(processMatch(selector, x, guard, body, true), "return function(%s) {%s}(%s)".format(bindListArgs, buildTree(body), bindListValues)))
+              case x @ Apply(f, as) => 
+                val bindList = buildMatchBindList(x)
+                val bindListArgs = bindList.mkString(",")
+                val bindListValues = bindList.zipWithIndex.map { y => "matched[%s]".format(y._2) } mkString(",")
+                sb.append(
+                  tmp.format(processMatch(selector, x, guard, body, false), "return function(%s) {%s}(%s)".format(bindListArgs, buildTree(body), bindListValues)))
+              case x => sb.append("f"+x.getClass)
             }
+            case _ => sb.append("not here 2")
+          }
+        }
 
-            if(hasReturn) {
-                "%s: return %s;\n".format(part, buildTree(body))
-            } else {
-                "%s: %s;break;\n".format(part, buildTree(body))
-            }
+        case _ => sb.append("not here 3")
+      }
+
+      "function() {%s}()".format(sb.toString)
+    }
+
+    def classType(f:Tree) = JsFunction(f.tpe.finalResultType.toString)
+
+    def toJsType(t:String) = t match {
+      case "String" => JsFunction("String")
+      case "Int" | "Long" | "Double" => JsFunction("Number")
+      case other => JsFunction(other)
+    }
+
+    def toJsValue(t:Any) = t match {
+      case x:String => JsString(x)
+      case x:Number => JsNumber(x)
+      case x:Boolean => JsBoolean(x)
+      case x => JsObject(Nil)
+    }
+
+    def processMatch(selector:Tree, pat:Tree, guard:Tree, body:Tree, isBound:Boolean):String = {
+
+      val matchit = "matched = scalosure.matchit(%s,%s)".format(buildTree(selector), utils.scala2js(processMatchPat(pat, isBound)))
+
+      val bindList = buildMatchBindList(pat)
+      val bindListArgs = bindList.mkString(",")
+      val bindListValues = bindList.zipWithIndex.map { x => "matched[%s]".format(x._2) } mkString(",")
+
+      if(guard.toString != "<empty>") {
+        "(%s) && function(%s) {return %s}(%s)".format(matchit, bindListArgs, buildTree(guard), bindListValues)
+      } else {
+        matchit
+      }
+      
+    }
+
+    def buildMatchBindList(t:Tree, binds:List[String] = Nil):List[String] = t match {
+      case x @ Apply(f, xs) => xs.map { y => buildMatchBindList(y, binds) } flatten
+      case x @ Bind(n, b) => binds ++ List(n.toString) ++ buildMatchBindList(b)
+      case x => binds
+    }
+
+    def buildMetaType(tpe:JsType, bind:Boolean, children:List[JsType], cond:JsType=null) = JsObject(
+      "type" -> tpe :: "bind" -> JsBoolean(bind) :: "children" -> JsArray(children) :: "cond" -> (if(cond == null) JsFunction("null") else cond) :: Nil)
+
+    def processMatchPat(t:Tree, isBound:Boolean):JsType = t match { 
+      case x @ Apply(f, xs) => buildMetaType(classType(x), isBound, xs map { x => processMatchPat(x, false) })
+      case x @ Bind(n, b) => processMatchPat(b, true)
+      case x @ Ident(n) if n.toString == "_" => buildMetaType(toJsType(x.tpe.toString), isBound, Nil)
+      case x @ Literal(Constant(v)) => buildMetaType(toJsType(x.tpe.typeSymbol.nameString), isBound, Nil, toJsValue(v))
+      case x => println(x.getClass); JsObject(Nil)
     }
 
     def findRequiresFrom(tree:Tree):Set[String] = {
@@ -462,7 +552,8 @@ trait S2JSPrinter {
         var currentFile:scala.tools.nsc.io.AbstractFile = null
 
         val thingsToIgnore = List("scalosure.script", "s2js.JsObject", "s2js.JsArray", "s2js.Html", "ClassManifest", "scala.runtime.AbstractFunction1",
-          "scala.Product", "scala.ScalaObject", "java.lang", "scala.xml", "$default$", "browser")
+          "scala.runtime.AbstractFunction2", "scala.runtime.AbstractFunction3", "scala.Tuple2", "scala.Tuple3", "scala.Product", "scala.ScalaObject", 
+          "java.lang", "scala.xml", "$default$", "browser")
 
         def buildName(s:Symbol):String = s.fullName.replace("scala", "scalosure")
           
@@ -604,6 +695,7 @@ trait S2JSPrinter {
 
         val stats = ts.rhs match {
             case y @ Block(_, _) => buildBlock(y)
+            case y @ Match(_, _) => "return "+buildSwitch(y)
             case y => buildTree(y) match {
                 case z if(ts.tpt.symbol.nameString == "Unit") => 
                     if(z == "") "" else "%s;\n".format(z)
@@ -707,5 +799,58 @@ trait S2JSPrinter {
 
       case x => buildTree(x)
     }
+
 }
 
+object utils {
+
+    private def quotedChar(codePoint: Int) = {
+        codePoint match {
+            case c if c > 0xffff =>
+            val chars = Character.toChars(c)
+            "\\u%04x\\u%04x".format(chars(0).toInt, chars(1).toInt)
+            case c if c > 0x7e => "\\u%04x".format(c.toInt)
+            case c => c.toChar
+        }
+    }
+
+    private def quote(s: String) = {
+
+        val charCount = s.codePointCount(0, s.length)
+
+        "\"" + 0.to(charCount - 1).map { idx =>
+            s.codePointAt(s.offsetByCodePoints(0, idx)) match {
+                case 0x0d => "\\r"
+                case 0x0a => "\\n"
+                case 0x09 => "\\t"
+                case 0x22 => "\\\""
+                case 0x5c => "\\\\"
+                case 0x2f => "\\/"     // to avoid sending "</"
+                case c => quotedChar(c)
+            }
+        }.mkString("") + "\""
+    }
+
+    def scala2json(obj:Any):String = obj match {
+
+        case null => "null"
+        case x:Boolean => x.toString
+        case x:Number => x.toString
+        case x:List[_] => x.map {
+            y => scala2json(y)
+        }.mkString("[",",","]")
+        case x:Map[_, _] => x.map {
+            y => quote(y._1.toString)+":"+scala2json(y._2)
+        }.mkString("{",",","}")
+        case x => quote(x.toString)
+    }
+
+    def scala2js(obj:JsType):String = obj match {
+      case JsObject(items) => items map { x => "'%s':%s".format(x._1, scala2js(x._2)) } mkString("{", ",", "}")
+      case JsArray(items) => items map { scala2js } mkString("[", ",", "]")
+      case JsString(value) => "'%s'".format(value)
+      case JsBoolean(value) => value.toString
+      case JsNumber(value) => value.toString
+      case JsFunction(value) => value.toString
+    }
+}
