@@ -26,4 +26,3 @@ class JsArray {
 object JsArray {
   def apply(elems:Any*) = new JsArray
 }
-

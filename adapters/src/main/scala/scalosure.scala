@@ -5,4 +5,3 @@ object script {
 }
 
 class ScalosureObject
-
