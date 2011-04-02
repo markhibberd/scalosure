@@ -79,41 +79,31 @@ class ImportSpecs extends PrinterFixtureSpec {
     it("ignore implicit browser imports") {
 
         parser expect {"""
-
         object o1 {
             val f1 = s2js.Html(<span>foo</span>)
-
             def m1() {
                 println(f1.innerHTML)
             }
         }
-
         """} toBe {"""
-
         goog.provide('o1');
         o1.f1 = goog.dom.createDom('span',{},['foo']);
         o1.m1 = function() {var self = this;
             console.log(o1.f1.innerHTML);
         };
-
         """}
     }
 
     it("ignore explicit browser imports") {
 
         parser expect {"""
-
         import browser._
-
         object o1 {
             val f1 = window.location
         }
-
         """} toBe {"""
-
         goog.provide('o1');
         o1.f1 = window.location;
-
         """}
     }
     
@@ -161,5 +151,3 @@ class ImportSpecs extends PrinterFixtureSpec {
         """}
     }
 }
-
-// vim: set ts=4 sw=4 foldmethod=syntax et:

@@ -24,6 +24,9 @@ class PackageSpecs extends PrinterFixtureSpec {
       goog.provide('A');
       goog.provide('o');
 
+      goog.require('scalosure');
+      goog.require('scalosure.Some');
+
       /** @constructor*/
       A = function(name) {
         var self = this;
@@ -39,7 +42,18 @@ class PackageSpecs extends PrinterFixtureSpec {
         var self = this;
         var a = A.$apply('name');
       };
-
+      A.unapply = function(x$0) {
+        var self = this;
+        return (x$0 == null) ? function() {
+          return scala.None;
+        }() : function() {
+          return scalosure.Some.$apply(x$0.name);
+        }();
+      };
+      A.$apply = function(name) {
+        var self = this;
+        return new A(name);
+      };
       """}
     }
 
@@ -224,12 +238,10 @@ class PackageSpecs extends PrinterFixtureSpec {
     it("can have default arguments for constructors") {
 
       parser expect {"""
-
       package $pkg {
         class A(x:String = "")
         class B extends A
       }
-
       """} toBe {"""
 
       goog.provide('$pkg.A');
@@ -250,6 +262,10 @@ class PackageSpecs extends PrinterFixtureSpec {
       };
       goog.inherits($pkg.B, $pkg.A);
 
+      $pkg.A.init$default$1 = function() {
+        var self = this;
+        return '';
+      };
       """}
 
     }

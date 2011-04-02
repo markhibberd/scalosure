@@ -113,7 +113,6 @@ class ControlFlowSpecs extends PrinterFixtureSpec {
         it("can have return values") {
 
             parser expect {"""
-
             object o1 {
                 def m1():String = "fooy"
                 def m2(x:String) {
@@ -125,16 +124,13 @@ class ControlFlowSpecs extends PrinterFixtureSpec {
                     }
                 }
             }
-
             """} toBe {"""
-
             goog.provide('o1');
             o1.m1 = function() {var self = this;return 'fooy';};
             o1.m2 = function(x) {
                 var self = this;
-                var y = (x == 'foo') ? function() {console.log('was foo');}() : function() {console.log('was not');return o1.m1();}();
+                var y = (x == 'foo') ? function() {return console.log('was foo');}() : function() {console.log('was not');return o1.m1();}();
             };
-
             """}
         }
 
@@ -148,36 +144,35 @@ class ControlFlowSpecs extends PrinterFixtureSpec {
         it("can be return a value") {
 
             parser expect {"""
-
             object o1 {
-                def m1(x:String) {
-                    x match {
-                        case "0" => println("zero")
-                        case "1" => println("one")
-                        case _ => println("none")
-                    }
+              def m1(x:String) {
+                x match {
+                  case "0" => println("zero")
+                  case "1" => println("one")
+                  case _ => println("none")
                 }
+              }
             }
-
             """} toBe {"""
-
             goog.provide('o1');
             o1.m1 = function(x) {
                 var self = this;
-                switch(x) {
-                    case '0': console.log('zero');break;
-                    case '1': console.log('one');break;
-                    default: console.log('none');break;
-                };
+                return function() {var matched;
+                  if(x == '0') {
+                    return console.log('zero')
+                  }else if(x == '1') {
+                    return console.log('one')
+                  } else {
+                    return console.log('none')
+                  }
+                }()
             };
-
             """}
         }
 
         it("can be side effecting") {
 
             parser expect {"""
-
             object o1 {
                 def m1(x:String) {
                     val y = x match {
@@ -187,24 +182,22 @@ class ControlFlowSpecs extends PrinterFixtureSpec {
                     }
                 }
             }
-
             """} toBe {"""
-
             goog.provide('o1');
             o1.m1 = function(x) {
-                var self = this;
-                var y = function() {
-                    switch(x) {
-                        case '0': return console.log('zero');
-                        case '1': return console.log('one');
-                        default: return console.log('none');
-                    }
-                }();
+              var self = this;
+              var y = function() {var matched;
+                if(x == '0') {
+                  return console.log('zero')
+                }else if(x == '1') {
+                  return console.log('one')
+                } else {
+                  return console.log('none')
+                }
+              }();
             };
-
             """}
         }
     }
 }
 
-// vim: set ts=4 sw=4 et:

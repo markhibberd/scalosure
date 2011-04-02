@@ -320,7 +320,7 @@ trait S2JSPrinter {
 
         case x @ ValDef(mods, name, tpt, rhs) if(x.symbol.isLocal) => "var %s = %s".format(
           x.symbol.nameString, rhs match {
-            case y @ Match(_, _) => "scalosure.bitbucket = %s".format(buildSwitch(y))
+            case y @ Match(_, _) => buildSwitch(y)
             case y @ Select(q, n) if n.toString == "unary_$bang" => "!"+buildTree(q)
             case y => buildTree(y)
           })
@@ -553,7 +553,8 @@ trait S2JSPrinter {
 
         val thingsToIgnore = List("scalosure.script", "s2js.JsObject", "s2js.JsArray", "s2js.Html", "ClassManifest", "scala.runtime.AbstractFunction1",
           "scala.runtime.AbstractFunction2", "scala.runtime.AbstractFunction3", "scala.Tuple2", "scala.Tuple3", "scala.Product", "scala.ScalaObject", 
-          "java.lang", "scala.xml", "$default$", "browser")
+          "java.lang", "scala.xml", "scala.package", "$default$", "browser", "scala.runtime", "scala.Any", "scala.Equals", "scala.Boolean", "scala.Function1",
+          "scala.Predef", "scala.Int", "scala.Array")
 
         def buildName(s:Symbol):String = s.fullName.replace("scala", "scalosure")
           
@@ -634,13 +635,12 @@ trait S2JSPrinter {
                 }
 
             case x @ Select(_, _) => if(!thingsToIgnore.exists(x.symbol.fullName.contains)) {
-              s += buildName(x.symbol.owner)
+              if(x.symbol.sourceFile != currentFile) s += buildName(x.symbol.owner)
             }
                
             case x @ Ident(name) =>
             
-            case x =>
-                x.children.foreach(traverse)
+            case x => x.children.foreach(traverse)
         }
 
         traverse(tree)

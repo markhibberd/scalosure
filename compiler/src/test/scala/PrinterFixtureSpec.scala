@@ -38,7 +38,7 @@ abstract class PrinterFixtureSpec extends Spec with BeforeAndAfterAll {
             println()
             println("expect: "+jsCode)
             if(testdriving) {
-                val pw = new PrintWriter(new BufferedWriter(new FileWriter("src/test/resources/testdriven.js")));
+                val pw = new PrintWriter(new BufferedWriter(new FileWriter("testdriven.js")));
                 pw.print(actual)
                 pw.close
             }

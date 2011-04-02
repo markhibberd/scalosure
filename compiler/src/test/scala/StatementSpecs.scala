@@ -321,6 +321,7 @@ class StatementSpecs extends PrinterFixtureSpec {
                 }
             """} toBe {"""
                 goog.provide('goog.a');
+                goog.require('goog.css');
                 goog.a.x = goog.css.getCssName('foo');
             """}
         }

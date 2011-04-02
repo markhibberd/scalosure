@@ -10,10 +10,8 @@ class TestDrivenSpecs extends PrinterFixtureSpec {
     testdriving = true
 
     parser expect {"""
-
-    package sample
-    package object o {
-      def start() {
+    object o {
+      def start() = {
       }
     }
     """} toDebug {"""
@@ -24,4 +22,3 @@ class TestDrivenSpecs extends PrinterFixtureSpec {
     """}
   }
 }
-
