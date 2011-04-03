@@ -8,10 +8,23 @@ import goog.events.Event
 
 import s2js._
 
+import scalosure.datastore.{ Entity, Collection => Col }
+
 object app {
 
+  def printit(e:Entity) = e match {
+      case Tenant("bar") => println("tenant: bar"); ""
+      case _ => println("what"); ""
+  }
+
   @s2js.ExportSymbol
-  def start() {
+  def start() = {
+    
+    val t = testing.Tenant("foo")
+
+    val c = Col("one"->Tenant("foo"), "two"->Tenant("bar"))
+
+    c foreach { x => printit(x._2) }
 
   }
 

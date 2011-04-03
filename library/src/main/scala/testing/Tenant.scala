@@ -1,3 +1,5 @@
 package testing
 
-case class Tenant(name:String)
+import scalosure.datastore.Entity
+
+case class Tenant(val name:String) extends Entity
