@@ -1,3 +1,3 @@
 #! /bin/bash
 
-$HOME/lib/appengine-java-sdk-1.4.2/bin/dev_appserver.sh target/scala_2.8.1/webapp
+$HOME/lib/appengine-java-sdk-1.4.3/bin/dev_appserver.sh target/scala_2.8.1/webapp
