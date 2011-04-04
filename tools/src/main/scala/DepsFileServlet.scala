@@ -7,19 +7,14 @@ import javax.servlet.http._
 
 class DepsFileServlet extends HttpServlet with DepsFile {
 
-    override def doGet(req:HttpServletRequest, res:HttpServletResponse) {
+  override def doGet(req:HttpServletRequest, res:HttpServletResponse) {
 
-        res.setContentType("text/javascript");
+    res.setContentType("text/javascript");
 
-        val base = getServletContext.getRealPath(
-            getServletConfig.getInitParameter("base")).toString
+    val base = getServletContext.getRealPath(getServletConfig.getInitParameter("base")).toString
+    val path = getServletContext.getRealPath(getServletConfig.getInitParameter("path")).toString
 
-        val path = getServletContext.getRealPath(
-            getServletConfig.getInitParameter("path")).toString
-
-        res.getWriter.print(jsDepedencies(path, base))
-    }
+    res.getWriter.print(jsDepedencies(path, base))
+  }
 }
 
-
-// vim: set ts=4 sw=4 et:
