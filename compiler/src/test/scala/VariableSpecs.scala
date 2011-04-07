@@ -40,26 +40,26 @@ class VariableSpecs extends PrinterFixtureSpec {
 
         it("can have instantiations") {
 
-            parser expect {"""
-                package foo {
-                    class A {
-                        def m1() {
-                            val a = new java.util.ArrayList[String]
-                        }
-                    }
-                }
-
-            """} toBe {"""
-            
-                goog.provide('foo.A');
-                goog.require('java.util.ArrayList');
-                /** @constructor*/
-                foo.A = function() {var self = this;};
-                foo.A.prototype.m1 = function() {var self = this;
-                    var a = new java.util.ArrayList();
-                };
-
-            """}
+          parser expect {"""
+          package foo {
+            class B
+            class A {
+              def m1() {
+                val a = new B
+              }
+            }
+          }
+          """} toBe {"""
+          goog.provide('foo.B');
+          goog.provide('foo.A');
+          /** @constructor*/
+          foo.B = function() {var self = this;};
+          /** @constructor*/
+          foo.A = function() {var self = this;};
+          foo.A.prototype.m1 = function() {var self = this;
+              var a = new foo.B();
+          };
+          """}
         }
 
         it("can be identifiers") {
@@ -134,26 +134,22 @@ class VariableSpecs extends PrinterFixtureSpec {
         it("can be function literals") {
 
             parser expect {"""
-
-                package foo {
-                    class A {
-                        def m1() {
-                            val a = (b:String) => { println("foo") }
-                        }
-                    }
+            package foo {
+              class A {
+                def m1() {
+                  val a = (b:String) => { println("foo") }
                 }
-
+              }
+            }
             """} toBe {"""
-                goog.provide('foo.A');
-                /** @constructor*/
-                foo.A = function() {var self = this;};
-                foo.A.prototype.m1 = function() {var self = this;
-                    var a = function(b) {console.log('foo');};
-                };
+            goog.provide('foo.A');
+            /** @constructor*/
+            foo.A = function() {var self = this;};
+            foo.A.prototype.m1 = function() {var self = this;
+                var a = function(b) {return console.log('foo');};
+            };
             """}
         }
     }
 }
-
-// vim: set ts=4 sw=4 foldmethod=syntax et:
 

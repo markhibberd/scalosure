@@ -139,7 +139,7 @@ class MiscSpecs extends PrinterFixtureSpec {
 
     o1.m3 = function() {
       var self = this;
-      o1.m1('foo',function(x) {console.log(x);});
+      o1.m1('foo',function(x) {return console.log(x);});
     };
 
     """}

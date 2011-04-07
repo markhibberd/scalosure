@@ -204,7 +204,7 @@ class StatementSpecs extends PrinterFixtureSpec {
                 var self = this;
                 var c1 = new C1();
                 var c2 = new C2();
-                c1.m1(function(v1) {c2.m1(v1);});
+                c1.m1(function(v1) {return c2.m1(v1);});
             };
 
             """}
@@ -228,29 +228,24 @@ class StatementSpecs extends PrinterFixtureSpec {
             """} toBe {"""
 
             goog.provide('o1');
-            o1.m2$default$2 = function() {
-                var self = this;
-                return '';
-            };
-            o1.m1$default$2 = function() {
-                var self = this;
-                return '';
-            };
             o1.m1 = function(v1,v2) {
                 var self = this;
+                if (typeof(v2) === 'undefined') { v2 = ''; };
             };
             o1.m2 = function(v1,v2) {
                 var self = this;
+                if (typeof(v2) === 'undefined') { v2 = ''; };
             };
             o1.m3 = function(v1,v2) {
                 var self = this;
+                if (typeof(v2) === 'undefined') { v2 = null; };
             };
             o1.m4 = function() {
                 var self = this;
-                o1.m1('foo',o1.m1$default$2);
-                o1.m2('foo',o1.m2$default$2);
+                o1.m1('foo');
+                o1.m2('foo');
                 o1.m1('foo','bar');
-                o1.m3('foo',o1.m3$default$2);
+                o1.m3('foo');
             };
 
             """}

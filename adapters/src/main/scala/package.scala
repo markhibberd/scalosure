@@ -21,6 +21,8 @@ class JsArray {
   def filter(fn:(Any, Long, JsArray)=>Boolean) = new JsArray
   def some(fn:(Any, Long, JsArray)=>Boolean) = false
   def push(x:Any):Unit = {}
+  val length:Long = 0
+  def apply(elem:Int):Any = null
 }
 
 object JsArray {

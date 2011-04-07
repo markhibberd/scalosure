@@ -25,8 +25,8 @@ trait S2JSPrinter {
     import global._
 
     def debug(name:String, thing:Any) {
-        //print(name+" ")
-        //println(thing.toString)
+      //print(name+" ")
+      //println(thing.toString)
     }
 
     case class RichTree(t:Tree) {
@@ -86,11 +86,14 @@ trait S2JSPrinter {
         lb.mkString
     }
 
-    def isAnIgnoredMember(tree:Tree):Boolean = List("readResolve", "copy$default$1", "this").contains(tree.symbol.nameString)
+    def isAnIgnoredMember(tree:Tree):Boolean =
+      List("readResolve", "copy$default$1", "this").contains(tree.symbol.nameString) || isDefaultThing(tree)
+
+    def isDefaultThing(tree:Tree):Boolean = (tree.hasSymbol && tree.symbol.nameString.contains("$default$"))
 
     def buildPackageLevelItem(t:Tree):String = t match {
         case x @ ClassDef(_, _, _, _) => buildClass(x)
-        case x @ ModuleDef(_, _, Template(_, _, body)) if(!x.symbol.hasFlag(SYNTHETIC)) => body.map(buildPackageLevelItemMember).mkString
+        case x @ ModuleDef(_, _, Template(_, _, body)) if(!x.symbol.hasFlag(SYNTHETIC)) => body filterNot { isDefaultThing } map { buildPackageLevelItemMember } mkString
         case x @ ModuleDef(_, _, Template(_, _, body)) if(x.symbol.hasFlag(SYNTHETIC)) => body filterNot { isAnIgnoredMember } map { buildSyntheticMember } mkString
         case x @ PackageDef(_, stats) => stats.map(buildPackageLevelItemMember).mkString
         case x =>  ""
@@ -135,6 +138,11 @@ trait S2JSPrinter {
             lb += "%s = function(%s) {\n".format(className, ctorArgs.mkString(","))
 
             lb += "var self = this;\n"
+
+            // handle defaults in a javascript way
+            ctorDef.vparamss.flatten filter { _.symbol.hasDefault } foreach { 
+              x => lb += "if (typeof(%1$s) === 'undefined') { %1$s = %2$s; };\n".format(x.nameString, buildTree(x.asInstanceOf[ValDef].rhs))   
+            }
 
             // superclass construction and field initialization
             t.impl.foreach {
@@ -265,7 +273,7 @@ trait S2JSPrinter {
               case _ => Nil
             }
 
-            val passedArgs = (buildArgs(fun) ++ args)
+            val passedArgs = (buildArgs(fun) ++ args) filterNot { _.toString.contains("$default$") }
 
             val processedArgs = passedArgs.zip(x.symbol.paramss.flatten) map { 
               case (passed, defined) if defined.tpe.typeSymbol.nameString.matches("""(Function0|\<byname\>)""") => "function() {%s}".format(buildTree(passed))
@@ -311,7 +319,10 @@ trait S2JSPrinter {
                 case f @ Select(_, _) if isArrayArg(f) => {
                   "%s(%s)".format(buildTree(f), args map { buildObjectLiteral } mkString("[",",","]"))
                 }
-                case y => buildApply(fun)
+                case f @ Select(q, n) if f.symbol.owner.toString.contains("Array") => {
+                  tmp.format(buildTree(q), processedArgs.mkString(","))
+                }
+                case y =>  buildApply(fun)
             }
 
         case x @ TypeApply(Select(q, n), args) if(n.toString == "asInstanceOf") => buildTree(q)
@@ -330,8 +341,10 @@ trait S2JSPrinter {
         case x @ If(cond, thenp, elsep) => buildIf(x, (x.tpe.typeSymbol.nameString != "Unit"))
 
         case x @ Function(vparams, body) =>
+
             val args = vparams.map(_.symbol.nameString).mkString(",")
 
+            // does the body have a single expression or a block of expressions
             val impl = body match {
                 case y @ Block(_, _) => buildBlock(y)
                 case y => buildExpression(y)
@@ -361,7 +374,7 @@ trait S2JSPrinter {
             case y @ Select(q, n) if name.toString == "apply" => if(y.symbol.isLocal) {
               buildTree(y)+"."+translateName(name) 
             } else {
-              buildTree(y)+"."+translateName(name)
+              if(y.tpe.typeSymbol.nameString.matches("Function[0-9]")) buildTree(y) else buildTree(y)+"."+translateName(name)
             }
             case y @ Select(q, n) if(n.toString == "Predef" && name.toString == "println") => "console.log"
             case y if(name.toString == "$colon$plus" && y.symbol.nameString == "genericArrayOps") => "%s.push".format(
@@ -397,15 +410,14 @@ trait S2JSPrinter {
             case y @ TypeApply(fun, args) => ""
             case y @ Typed(expr, tpt) if tpt.toString == "_*" => expr.toString
             case y:TypeTree => "typetree"
-            case y => "#NOT IMPLEMENTED#"
+            case y @ New(tpe:TypeTree) => "new %s".format(tpe.symbol.fullName)
+            case y => println(y.getClass); "#NOT IMPLEMENTED#"
         }
     }
     
     def buildExpression(t:Tree):String =  buildTree(t) match {
-        case z if(t.tpe.toString == "Unit") => 
-            if(z == "") "" else "%s;\n".format(z)
-        case z => 
-            "return %s;\n".format(z)
+        case z if(t.tpe.toString == "Unit") => if(z == "") "" else "return %s;\n".format(z)
+        case z => "return %s;\n".format(z)
     }
 
     def buildBlock(t:Block):String = {
@@ -554,7 +566,7 @@ trait S2JSPrinter {
         val thingsToIgnore = List("scalosure.script", "s2js.JsObject", "s2js.JsArray", "s2js.Html", "ClassManifest", "scala.runtime.AbstractFunction1",
           "scala.runtime.AbstractFunction2", "scala.runtime.AbstractFunction3", "scala.Tuple2", "scala.Tuple3", "scala.Product", "scala.ScalaObject", 
           "java.lang", "scala.xml", "scala.package", "$default$", "browser", "scala.runtime", "scala.Any", "scala.Equals", "scala.Boolean", "scala.Function1",
-          "scala.Predef", "scala.Int", "scala.Array")
+          "scala.Predef", "scala.Int", "scala.Array", "scala.reflect.Manifest")
 
         def buildName(s:Symbol):String = s.fullName.replace("scala", "scalosure")
           
@@ -600,9 +612,7 @@ trait S2JSPrinter {
             // make sure we check all function calls for needed imports
             case x @ Apply(fun, args) =>
 
-                if(fun.toString.contains("scala.Array")) {
-                  s += "goog.array"
-                } else if(!thingsToIgnore.exists(fun.symbol.fullName.contains)) {
+                if(!thingsToIgnore.exists(fun.symbol.fullName.contains)) {
                     traverse(fun)
                 }
 
@@ -694,6 +704,11 @@ trait S2JSPrinter {
 
         // every method gets a self refrence
         l += "var self = this;\n"
+
+        // handle defaults in a javascript way
+        ts.vparamss.flatten filter { _.symbol.hasDefault } foreach { 
+          x => l += "if (typeof(%1$s) === 'undefined') { %1$s = %2$s; };\n".format(x.nameString, buildTree(x.asInstanceOf[ValDef].rhs))   
+        }
 
         val stats = ts.rhs match {
             case y @ Block(_, _) => buildBlock(y)

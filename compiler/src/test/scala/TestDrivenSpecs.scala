@@ -11,7 +11,14 @@ class TestDrivenSpecs extends PrinterFixtureSpec {
 
     parser expect {"""
     object o {
+      var onError:Function1[String, Unit] = (x) => {}
       def start() = {
+        onError = (s) => {
+          val z = s match {
+            case x:String => println("was string")
+            case x => println("not string")
+          }
+        }
       }
     }
     """} toDebug {"""

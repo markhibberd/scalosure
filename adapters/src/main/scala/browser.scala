@@ -88,3 +88,8 @@ class XMLHttpRequest {
   var onreadystatechange:Function0[Unit] = null
   var onerror:Function0[Unit] = null
 }
+
+object JSON {
+  def stringify(x:Any):String = ""
+  def parse(x:String):Any = null
+}

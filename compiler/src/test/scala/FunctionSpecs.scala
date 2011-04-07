@@ -157,7 +157,7 @@ class FunctionSpecs extends PrinterFixtureSpec {
       }
       """} toBe {"""
       goog.provide('a');
-      a.x = function(y) {console.log(y);};
+      a.x = function(y) {return console.log(y);};
       """}
     }
 

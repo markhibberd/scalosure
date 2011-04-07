@@ -250,6 +250,7 @@ class PackageSpecs extends PrinterFixtureSpec {
       /** @constructor*/
       $pkg.A = function(x) {
         var self = this;
+        if (typeof(x) === 'undefined') { x = ''; };
         self.x = x;
       };
 
@@ -261,11 +262,6 @@ class PackageSpecs extends PrinterFixtureSpec {
         $pkg.A.call(self);
       };
       goog.inherits($pkg.B, $pkg.A);
-
-      $pkg.A.init$default$1 = function() {
-        var self = this;
-        return '';
-      };
       """}
 
     }
