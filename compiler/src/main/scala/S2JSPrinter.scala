@@ -223,7 +223,7 @@ trait S2JSPrinter {
             a => "'_%s':%s".format((a._2+1), a._1.toString.replace("\"", "'")) 
           } mkString("{",",","}")
 
-        case x @ Apply(Select(q, n), args) if q.toString.matches("s2js.JsObject") => args.headOption match {
+        case x @ Apply(Select(q, n), args) if q.toString.matches("scalosure.JsObject") => args.headOption match {
           case Some(Typed(expr, tpt)) if tpt.toString == "_*" => expr.toString
           case _ => args map { buildObjectLiteral } mkString("{",",","}")
         }
@@ -563,7 +563,7 @@ trait S2JSPrinter {
 
         var currentFile:scala.tools.nsc.io.AbstractFile = null
 
-        val thingsToIgnore = List("scalosure.script", "s2js.JsObject", "s2js.JsArray", "s2js.Html", "ClassManifest", "scala.runtime.AbstractFunction1",
+        val thingsToIgnore = List("scalosure.script", "scalosure.JsObject", "s2js.JsArray", "s2js.Html", "ClassManifest", "scala.runtime.AbstractFunction1",
           "scala.runtime.AbstractFunction2", "scala.runtime.AbstractFunction3", "scala.Tuple2", "scala.Tuple3", "scala.Product", "scala.ScalaObject", 
           "java.lang", "scala.xml", "scala.package", "$default$", "browser", "scala.runtime", "scala.Any", "scala.Equals", "scala.Boolean", "scala.Function1",
           "scala.Predef", "scala.Int", "scala.Array", "scala.reflect.Manifest")
