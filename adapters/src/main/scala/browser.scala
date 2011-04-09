@@ -89,7 +89,10 @@ class XMLHttpRequest {
   var onerror:Function0[Unit] = null
 }
 
+class ActiveXObject(name:String) extends XMLHttpRequest
+
 object JSON {
   def stringify(x:Any):String = ""
   def parse(x:String):Any = null
 }
+
