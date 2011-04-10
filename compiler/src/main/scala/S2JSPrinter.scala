@@ -115,6 +115,8 @@ trait S2JSPrinter {
 
     def buildClass(t:ClassDef):String = {
 
+        debug("1x", t)
+
         val lb = new ListBuffer[String]
 
         val className = t.symbol.fullName
@@ -151,20 +153,21 @@ trait S2JSPrinter {
                         val filteredArgs = args.filter(!_.toString.contains("$default$")).map(_.toString)
                         lb += "%s.call(%s);\n".format(y.symbol.fullName, (List("self") ++ filteredArgs).mkString(","))
                         ctorArgs.diff(filteredArgs).foreach {
-                            y => lb += "self.%1$s = %1$s;\n".format(y)
+                            y => debug("1b", y); lb += "self.%1$s = %1$s;\n".format(y)
                         }
                     case None => 
                         ctorArgs.foreach {
-                            y => lb += "self.%1$s = %1$s;\n".format(y)
+                            y => debug("1c", y);  lb += "self.%1$s = %1$s;\n".format(y)
                         }
                 }
                 case x => 
             }
 
             t.impl.body filterNot { isAnIgnoredMember } foreach {
-                case x @ Apply(fun, args) => lb += buildTree(x)+";\n"
-                case x @ ClassDef(_, _, _, _) => lb += buildClass(x)
-                case x =>
+              case x @ Apply(fun, args) => lb += buildTree(x)+";\n"
+              case x @ ClassDef(_, _, _, _) => lb += buildClass(x)
+              case x @ ValDef(mods, name, tpt, rhs) if !x.symbol.isParamAccessor => lb += "self.%s = %s;\n".format(name.toString.trim, buildTree(rhs))
+              case x => debug("2a", x)
             }
 
             lb += "};\n"
@@ -195,10 +198,15 @@ trait S2JSPrinter {
 
         def isSynthetic(x:Tree):Boolean = x.symbol.isSynthetic
 
+        def isValDef(x:Tree):Boolean = x match {
+          case ValDef(_, _, _, _) => true
+          case _ => false
+        }
+
         if(t.symbol.hasFlag(CASE)) {
             lb ++= t.impl.body filterNot { isCaseMember } map { buildPackageLevelItemMember }
         } else {
-            lb ++= t.impl.body.map(buildPackageLevelItemMember)
+            lb ++= t.impl.body filterNot { isValDef } map { buildPackageLevelItemMember }
         }
 
         return lb.mkString
@@ -266,6 +274,8 @@ trait S2JSPrinter {
 
         case x @ Apply(fun, args) =>
 
+            debug("3a", fun + ": " + fun.getClass)
+
             val argumentList = x.symbol.paramss
 
             def buildArgs(t:Tree):List[Tree] = t match {
@@ -276,7 +286,7 @@ trait S2JSPrinter {
             val passedArgs = (buildArgs(fun) ++ args) filterNot { _.toString.contains("$default$") }
 
             val processedArgs = passedArgs.zip(x.symbol.paramss.flatten) map { 
-              case (passed, defined) if defined.tpe.typeSymbol.nameString.matches("""(Function0|\<byname\>)""") => "function() {%s}".format(buildTree(passed))
+              //case (passed, defined) if defined.tpe.typeSymbol.nameString.matches("""(Function0|\<byname\>)""") => debug("1b", passed); "function() {%s}".format(buildTree(passed))
               case (passed, defined) => buildTree(passed)
             }
 
@@ -342,15 +352,15 @@ trait S2JSPrinter {
 
         case x @ Function(vparams, body) =>
 
-            val args = vparams.map(_.symbol.nameString).mkString(",")
+          val args = vparams.map(_.symbol.nameString).mkString(",")
 
-            // does the body have a single expression or a block of expressions
-            val impl = body match {
-                case y @ Block(_, _) => buildBlock(y)
-                case y => buildExpression(y)
-            }
+          // does the body have a single expression or a block of expressions
+          val impl = body match {
+            case y @ Block(_, _) => buildBlock(y)
+            case y => buildExpression(y)
+          }
 
-            "function(%s) {\n%s}".format(args, impl)
+          "function(%s) {\n%s}".format(args, impl)
 
         case EmptyTree => "null"
 
@@ -422,18 +432,22 @@ trait S2JSPrinter {
 
     def buildBlock(t:Block):String = {
 
+        // process statements as normal
         val stats = t.stats map { buildTree } map { _ + ";\n" }
         
-        val expr = t.expr match {
-          case x @ Function(_, _) => Some(buildTree(t.expr)) 
-          case x => buildTree(x) match {
-            case z if t.tpe.toString == "Unit" => if(z == "") None else Some("%s;\n".format(z))
-            case z if t.tpe.toString.endsWith(" => Unit") => if(z == "") None else Some("%s".format(z))
-            case z => Some("return %s;\n".format(z))
-          }
-        }
+        // process expression with a return
+        stats.mkString + buildTree(t.expr)
 
-        stats.mkString + expr.getOrElse("")
+        //val expr = t.expr match {
+          //case x @ Function(_, _) => debug("2b", x); Some(buildTree(t.expr)) 
+          //case x => buildTree(x) match {
+            //case z if t.tpe.toString == "Unit" => if(z == "") None else Some("%s;\n".format(z))
+            //case z if t.tpe.toString.endsWith(" => Unit") => if(z == "") None else Some("%s".format(z))
+            //case z => Some("return %s;\n".format(z))
+          //}
+        //}
+
+        //stats.mkString + expr.getOrElse("")
     }
 
     def buildIf(t:If, hasReturn:Boolean):String = {
@@ -565,8 +579,8 @@ trait S2JSPrinter {
 
         val thingsToIgnore = List("scalosure.script", "scalosure.JsObject", "s2js.JsArray", "s2js.Html", "ClassManifest", "scala.runtime.AbstractFunction1",
           "scala.runtime.AbstractFunction2", "scala.runtime.AbstractFunction3", "scala.Tuple2", "scala.Tuple3", "scala.Product", "scala.ScalaObject", 
-          "java.lang", "scala.xml", "scala.package", "$default$", "browser", "scala.runtime", "scala.Any", "scala.Equals", "scala.Boolean", "scala.Function1",
-          "scala.Predef", "scala.Int", "scala.Array", "scala.reflect.Manifest")
+          "java.lang", "scala.xml", "scala.package", "$default$", "browser", "scala.runtime", "scala.Any", "scala.Equals", "scala.Boolean", "scala.Function0",
+          "scala.Function1", "scala.Predef", "scala.Int", "scala.Array", "scala.reflect.Manifest")
 
         def buildName(s:Symbol):String = s.fullName.replace("scala", "scalosure")
           
