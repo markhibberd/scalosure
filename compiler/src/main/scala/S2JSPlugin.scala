@@ -3,6 +3,8 @@ package s2js
 import scala.tools.nsc.{Global, Phase}
 import scala.tools.nsc.plugins.{Plugin, PluginComponent}
 
+import scala.collection.{ mutable => mu }
+
 import java.io.{File, FileWriter, BufferedWriter}
 
 class S2JSPlugin (val global:Global) extends Plugin {
@@ -32,38 +34,37 @@ class S2JSPlugin (val global:Global) extends Plugin {
 
 	private object Component extends PluginComponent with S2JSPrinter {
 
-		val global = S2JSPlugin.this.global
-		val phaseName = S2JSPlugin.this.name
+      val global = S2JSPlugin.this.global
+      val phaseName = S2JSPlugin.this.name
 
-        import global._
+      import global._
 
-        val runsAfter = List("typer")
+      val runsAfter = List("typer")
 
-        def newPhase(prev:Phase) = new StdPhase(prev) {
+      def newPhase(prev:Phase) = new StdPhase(prev) {
             
-            override def name = phaseName
+        override def name = phaseName
 
-            override def apply(unit:CompilationUnit) = {
+        override def apply(unit:CompilationUnit) = {
 
-                def needsProcessing(sym:Symbol):Boolean = input.split(";") exists { sym.fullName.startsWith(_) }
+          def needsProcessing(sym:Symbol):Boolean = input.split(";") exists { sym.fullName.startsWith(_) }
 
-                if(needsProcessing(unit.body.symbol)) {
+          if(needsProcessing(unit.body.symbol)) {
 
-                    val path = unit.body.symbol.fullName.replace('.', '/')
+            val path = unit.body.symbol.fullName.replace('.', '/')
 
-                    val fullPath = unit.source.file.path
-                    val newFilePath = output+"/"+fullPath.slice(fullPath.lastIndexOfSlice(path), fullPath.size).replace(".scala",".js")
-                    new File(newFilePath).getParentFile.mkdirs
+            val fullPath = unit.source.file.path
+            val newFilePath = output+"/"+fullPath.slice(fullPath.lastIndexOfSlice(path), fullPath.size).replace(".scala",".js")
+            new File(newFilePath).getParentFile.mkdirs
 
-                    var stream = new FileWriter(newFilePath)
-                    var writer = new BufferedWriter(stream)
+            var stream = new FileWriter(newFilePath)
+            var writer = new BufferedWriter(stream)
 
-                    writer write tree2string(unit.body)
-                    writer.close()
-                }
-            }
+            writer write tree2string(unit.body)
+            writer.close()
+          }
         }
-	}
+      }
+    }
 }
 
-// vim: set ts=4 sw=4 et:
