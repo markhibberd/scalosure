@@ -2,6 +2,8 @@ package s2js
 
 import scala.reflect.generic.Flags._
 
+import scala.collection.{ mutable => mu }
+
 import scala.collection.mutable.{
     ListBuffer, StringBuilder
 }
@@ -86,10 +88,11 @@ trait S2JSPrinter {
         lb.mkString
     }
 
-    def isAnIgnoredMember(tree:Tree):Boolean =
-      List("readResolve", "copy$default$1", "this").contains(tree.symbol.nameString) || isDefaultThing(tree)
-
     def isDefaultThing(tree:Tree):Boolean = (tree.hasSymbol && tree.symbol.nameString.contains("$default$"))
+
+    def isAnIgnoredMember(tree:Tree):Boolean = if(tree.hasSymbol) {
+      List("readResolve", "copy$default$1", "this").contains(tree.symbol.nameString) || isDefaultThing(tree)
+    } else { false }
 
     def buildPackageLevelItem(t:Tree):String = t match {
         case x @ ClassDef(_, _, _, _) => buildClass(x)
@@ -115,13 +118,16 @@ trait S2JSPrinter {
 
     def buildClass(t:ClassDef):String = {
 
-        debug("1x", t)
-
         val lb = new ListBuffer[String]
 
         val className = t.symbol.fullName
 
         val superClassName = t.impl.parents filterNot { isCosmicType } headOption
+
+        def isIgnoredMember(x:Symbol):Boolean = 
+            isCosmicMember(x) || 
+            x.isConstructor || 
+            x.hasFlag(ACCESSOR)
 
         if(t.symbol.isTrait) {
 
@@ -153,21 +159,29 @@ trait S2JSPrinter {
                         val filteredArgs = args.filter(!_.toString.contains("$default$")).map(_.toString)
                         lb += "%s.call(%s);\n".format(y.symbol.fullName, (List("self") ++ filteredArgs).mkString(","))
                         ctorArgs.diff(filteredArgs).foreach {
-                            y => debug("1b", y); lb += "self.%1$s = %1$s;\n".format(y)
+                            y => lb += "self.%1$s = %1$s;\n".format(y)
                         }
                     case None => 
                         ctorArgs.foreach {
-                            y => debug("1c", y);  lb += "self.%1$s = %1$s;\n".format(y)
+                            y => lb += "self.%1$s = %1$s;\n".format(y)
                         }
                 }
                 case x => 
+            }
+
+            val tms = t.impl.parents.filter(_.symbol.isTrait).filterNot(x => isIgnoredMember(x.symbol)) map { 
+              x => x.tpe.members filterNot { isIgnoredMember } filter { x => !x.isMethod } map { m => (m.owner.fullName, buildName(m)) }
+            }
+
+            tms.flatten foreach {
+              x => lb += "self.%s = %s.prototype.%s;\n".format(x._2, x._1, x._2)
             }
 
             t.impl.body filterNot { isAnIgnoredMember } foreach {
               case x @ Apply(fun, args) => lb += buildTree(x)+";\n"
               case x @ ClassDef(_, _, _, _) => lb += buildClass(x)
               case x @ ValDef(mods, name, tpt, rhs) if !x.symbol.isParamAccessor => lb += "self.%s = %s;\n".format(name.toString.trim, buildTree(rhs))
-              case x => debug("2a", x)
+              case x => 
             }
 
             lb += "};\n"
@@ -179,34 +193,31 @@ trait S2JSPrinter {
 
         val traits = t.impl.parents filterNot { isCosmicType } filter { _.symbol.isTrait }
 
-        def isIgnoredMember(x:Symbol):Boolean = 
-            isCosmicMember(x) || 
-            x.isConstructor || 
-            x.hasFlag(ACCESSOR)
+        def isValDef(x:Tree):Boolean = x match {
+          case ValDef(_, _, _, _) => true
+          case _ => false
+        }
 
         val traitMembers = traits map { 
-            x => x.tpe.members filterNot { isIgnoredMember } map { m => (m.owner.fullName, buildName(m)) }
+            x => x.tpe.members filterNot { isIgnoredMember } filter { _.isMethod } map { m => (m.owner.fullName, buildName(m)) }
         }
 
         traitMembers.flatten foreach {
             x => lb += "%s.prototype.%s = %s.prototype.%s;\n".format(className, x._2, x._1, x._2)
         }
-
+        
         val caseMemberNames = List("productPrefix", "productArity", "productElement", "equals", "toString", "canEqual", "hashCode", "copy")
 
         def isCaseMember(x:Tree):Boolean = caseMemberNames.exists(x.symbol.fullName.endsWith(_))
 
         def isSynthetic(x:Tree):Boolean = x.symbol.isSynthetic
 
-        def isValDef(x:Tree):Boolean = x match {
-          case ValDef(_, _, _, _) => true
-          case _ => false
-        }
-
         if(t.symbol.hasFlag(CASE)) {
-            lb ++= t.impl.body filterNot { isCaseMember } map { buildPackageLevelItemMember }
+          lb ++= t.impl.body filterNot { isCaseMember } map { buildPackageLevelItemMember }
+        } else if(t.symbol.isTrait) {
+          lb ++= t.impl.body map { buildPackageLevelItemMember }
         } else {
-            lb ++= t.impl.body filterNot { isValDef } map { buildPackageLevelItemMember }
+          lb ++= t.impl.body filterNot { isValDef } map { buildPackageLevelItemMember }
         }
 
         return lb.mkString
@@ -273,8 +284,6 @@ trait S2JSPrinter {
         }
 
         case x @ Apply(fun, args) =>
-
-            debug("3a", fun + ": " + fun.getClass)
 
             val argumentList = x.symbol.paramss
 
@@ -573,7 +582,7 @@ trait S2JSPrinter {
 
     def findRequiresFrom(tree:Tree):Set[String] = {
         
-        val s = new collection.mutable.LinkedHashSet[String] 
+        val s = new mu.LinkedHashSet[String] 
 
         var currentFile:scala.tools.nsc.io.AbstractFile = null
 
