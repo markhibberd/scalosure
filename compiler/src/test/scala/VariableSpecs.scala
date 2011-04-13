@@ -146,7 +146,7 @@ class VariableSpecs extends PrinterFixtureSpec {
             /** @constructor*/
             foo.A = function() {var self = this;};
             foo.A.prototype.m1 = function() {var self = this;
-                var a = function(b) {return console.log('foo');};
+                var a = function(b) {console.log('foo');};
             };
             """}
         }

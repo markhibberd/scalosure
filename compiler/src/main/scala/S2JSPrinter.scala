@@ -285,6 +285,10 @@ trait S2JSPrinter {
 
         case x @ Apply(fun, args) =>
 
+          debug("1a", x)
+
+          args.foreach(y => debug("1b", y.getClass + ": " + y))
+
             val argumentList = x.symbol.paramss
 
             def buildArgs(t:Tree):List[Tree] = t match {
@@ -294,9 +298,16 @@ trait S2JSPrinter {
 
             val passedArgs = (buildArgs(fun) ++ args) filterNot { _.toString.contains("$default$") }
 
+            def buildAnArg(t:Tree):String = t match {
+              case x @ Function(_, _) => buildTree(x)
+              case x @ Block(stats, y @ Function(vparams, Apply(f, as))) =>
+                "function(%s) {return %s(%s)}".format(as.mkString("_", ",", "_"), buildTree(f), as.mkString("_", ",", "_"))
+              case x => buildTree(x)
+            }
+
             val processedArgs = passedArgs.zip(x.symbol.paramss.flatten) map { 
               //case (passed, defined) if defined.tpe.typeSymbol.nameString.matches("""(Function0|\<byname\>)""") => debug("1b", passed); "function() {%s}".format(buildTree(passed))
-              case (passed, defined) => buildTree(passed)
+              case (passed, defined) => buildAnArg(passed)
             }
 
             def ownerName(t:Tree) = if(fun.hasSymbol) Some(fun.symbol.owner.nameString) else  None
@@ -366,7 +377,7 @@ trait S2JSPrinter {
           // does the body have a single expression or a block of expressions
           val impl = body match {
             case y @ Block(_, _) => buildBlock(y)
-            case y => buildExpression(y)
+            case y => buildExpression(y, body.tpe.toString != "Unit")
           }
 
           "function(%s) {\n%s}".format(args, impl)
@@ -434,29 +445,14 @@ trait S2JSPrinter {
         }
     }
     
-    def buildExpression(t:Tree):String =  buildTree(t) match {
-        case z if(t.tpe.toString == "Unit") => if(z == "") "" else "return %s;\n".format(z)
-        case z => "return %s;\n".format(z)
+    def buildExpression(t:Tree, hasReturn:Boolean = true):String = buildTree(t) match {
+        case z if(t.tpe.toString == "Unit") => if(z == "") "" else if(hasReturn) "return %s;\n".format(z) else "%s;\n".format(z)
+        case z => if(hasReturn) "return %s;\n".format(z) else "%s;\n".format(z)
     }
 
     def buildBlock(t:Block):String = {
-
-        // process statements as normal
         val stats = t.stats map { buildTree } map { _ + ";\n" }
-        
-        // process expression with a return
-        stats.mkString + buildTree(t.expr)
-
-        //val expr = t.expr match {
-          //case x @ Function(_, _) => debug("2b", x); Some(buildTree(t.expr)) 
-          //case x => buildTree(x) match {
-            //case z if t.tpe.toString == "Unit" => if(z == "") None else Some("%s;\n".format(z))
-            //case z if t.tpe.toString.endsWith(" => Unit") => if(z == "") None else Some("%s".format(z))
-            //case z => Some("return %s;\n".format(z))
-          //}
-        //}
-
-        //stats.mkString + expr.getOrElse("")
+        stats.mkString + buildExpression(t.expr, t.tpe.toString != "Unit")
     }
 
     def buildIf(t:If, hasReturn:Boolean):String = {
@@ -586,7 +582,7 @@ trait S2JSPrinter {
 
         var currentFile:scala.tools.nsc.io.AbstractFile = null
 
-        val thingsToIgnore = List("scalosure.script", "scalosure.JsObject", "s2js.JsArray", "s2js.Html", "ClassManifest", "scala.runtime.AbstractFunction1",
+        val thingsToIgnore = List("scalosure.script", "s2js.JsObject", "scalosure.JsObject", "s2js.JsArray", "s2js.Html", "ClassManifest", "scala.runtime.AbstractFunction1",
           "scala.runtime.AbstractFunction2", "scala.runtime.AbstractFunction3", "scala.Tuple2", "scala.Tuple3", "scala.Product", "scala.ScalaObject", 
           "java.lang", "scala.xml", "scala.package", "$default$", "browser", "scala.runtime", "scala.Any", "scala.Equals", "scala.Boolean", "scala.Function0",
           "scala.Function1", "scala.Predef", "scala.Int", "scala.Array", "scala.reflect.Manifest")

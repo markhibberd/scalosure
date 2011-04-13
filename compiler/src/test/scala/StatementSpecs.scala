@@ -96,8 +96,9 @@ class StatementSpecs extends PrinterFixtureSpec {
                 goog.provide('a');
                 goog.provide('b');
                 /** @constructor*/
-                a = function() {var self = this;};
-                a.prototype.x = '';
+                a = function() {var self = this;
+                    self.x = '';
+                };
                 a.prototype.m1 = function() {
                     var self = this;
                     self.x = 'foo';
@@ -133,8 +134,9 @@ class StatementSpecs extends PrinterFixtureSpec {
                 goog.provide('A');
                 goog.provide('b');
                 /** @constructor*/
-                A = function() {var self = this;};
-                A.prototype.x = '';
+                A = function() {var self = this;
+                    self.x = '';
+                };
                 b.m1 = function() {
                     var self = this;
                     var a = new A();
@@ -182,9 +184,9 @@ class StatementSpecs extends PrinterFixtureSpec {
             goog.provide('o1');
 
             /** @constructor*/
-            C1 = function() {var self = this;};
-
-            C1.prototype.f1 = 'c1';
+            C1 = function() {var self = this;
+                self.f1 = 'c1';
+            };
 
             C1.prototype.m1 = function(fn) {var self = this;
                 console.log(self.f1);
@@ -192,9 +194,9 @@ class StatementSpecs extends PrinterFixtureSpec {
             };
 
             /** @constructor*/
-            C2 = function() {var self = this;};
-
-            C2.prototype.f1 = 'c2';
+            C2 = function() {var self = this;
+                self.f1 = 'c2';
+            };
 
             C2.prototype.m1 = function(v1) {var self = this;
                 console.log((v1 + self.f1));
@@ -204,7 +206,7 @@ class StatementSpecs extends PrinterFixtureSpec {
                 var self = this;
                 var c1 = new C1();
                 var c2 = new C2();
-                c1.m1(function(v1) {return c2.m1(v1);});
+                c1.m1(function(_v1_) {return c2.m1(_v1_)});
             };
 
             """}

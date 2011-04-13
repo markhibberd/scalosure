@@ -11,43 +11,56 @@ class FunctionSpecs extends PrinterFixtureSpec {
 
         parser expect {"""
 
+        class F {
+          val v1 = "v1"
+          def f1(x:String) = v1 + x.toUpperCase
+        }
+
         object o {
 
-          def toUpper(x:String) = x.toUpperCase
-
-          def m1(fn:(String) => String) {
-            val x = fn("From M1") 
-            println(x)
+          def f2(f:(String) => String) {
+            println(f("m1"))
           }
 
-          def m2() {
-            m1 { toUpper }
-            m1 { (x) => toUpper(x) }
+          def f3(x:String) = "what"+x
+
+          def start() {
+            val x = new F
+            f2(x.f1)
+            f2(f3)
+            f2 { (x:String) => "no"+x }
           }
         }
 
         """} toBe {"""
-
+        goog.provide('F');
         goog.provide('o');
-        o.toUpper = function(x) {
+        /** @constructor*/
+        F = function() {
           var self = this;
-          return x.toUpperCase();
+          self.v1 = 'v1';
         };
-        o.m1 = function(fn) {
+        F.prototype.f1 = function(x) {
           var self = this;
-          var x = fn('From M1');
-          console.log(x);
+          return (self.v1 + x.toUpperCase());
         };
-        o.m2 = function() {
+        o.f2 = function(f) {
           var self = this;
-          o.m1(function(x) {
-              return o.toUpper(x);
-            });
-          o.m1(function(x) {
-              return o.toUpper(x);
-            });
+          console.log(f('m1'));
         };
-
+        o.f3 = function(x) {
+          var self = this;
+          return ('what' + x);
+        };
+        o.start = function() {
+          var self = this;
+          var x = new F();
+          o.f2(function(_x_) {return x.f1(_x_)});
+          o.f2(function(_x_) {return o.f3(_x_)});
+          o.f2(function(x) {
+            return ('no' + x);
+          });
+        };
         """}
       }
 
@@ -157,7 +170,7 @@ class FunctionSpecs extends PrinterFixtureSpec {
       }
       """} toBe {"""
       goog.provide('a');
-      a.x = function(y) {return console.log(y);};
+      a.x = function(y) {console.log(y);};
       """}
     }
 

@@ -93,9 +93,9 @@ class PackageSpecs extends PrinterFixtureSpec {
       pkg.B = function() {
         var self = this;
         pkg.A.call(self);
+        self.f1 = pkg.T.prototype.f1;
       };
       goog.inherits(pkg.B, pkg.A);
-      pkg.B.prototype.f1 = pkg.T.prototype.f1;
       pkg.B.prototype.m1 = pkg.T.prototype.m1;
 
       """}
@@ -127,7 +127,6 @@ class PackageSpecs extends PrinterFixtureSpec {
         var self = this;
         self.x = x;
       };
-      $pkg.B.prototype.x = null;
 
       /** @constructor*/
       $pkg.C = function(x,y) {
@@ -135,9 +134,6 @@ class PackageSpecs extends PrinterFixtureSpec {
         self.x = x;
         self.y = y;
       };
-      $pkg.C.prototype.x = null;
-      $pkg.C.prototype.y = null;
-
       """}
     }
 
@@ -185,10 +181,10 @@ class PackageSpecs extends PrinterFixtureSpec {
       goog.provide('$pkg.A');
 
       /** @constructor*/
-      $pkg.A = function() {var self = this;};
-
-      $pkg.A.prototype.f1 = 'f1';
-      $pkg.A.prototype.f2 = null;
+      $pkg.A = function() {var self = this;
+        self.f1 = 'f1';
+        self.f2 = null;
+      };
 
       """}
     }
@@ -220,8 +216,6 @@ class PackageSpecs extends PrinterFixtureSpec {
       };
       goog.inherits($pkg.B, $pkg.A);
 
-      $pkg.B.prototype.x = null;
-
       /** @constructor*/
       $pkg.C = function(x,y) {
         var self = this;
@@ -230,8 +224,6 @@ class PackageSpecs extends PrinterFixtureSpec {
       };
       goog.inherits($pkg.C, $pkg.B);
 
-      $pkg.C.prototype.x = null;
-      $pkg.C.prototype.y = null;
       """}
     }
 
@@ -253,8 +245,6 @@ class PackageSpecs extends PrinterFixtureSpec {
         if (typeof(x) === 'undefined') { x = ''; };
         self.x = x;
       };
-
-      $pkg.A.prototype.x = null;
 
       /** @constructor*/
       $pkg.B = function() {
@@ -285,14 +275,11 @@ class PackageSpecs extends PrinterFixtureSpec {
       A = function(x) {
         var self = this;
         self.x = x;
+        self.y = '';
+        self.z = '';
         self.z = 'what';
         console.log(('foo' + self.z));
       };
-
-      A.prototype.x = null;
-      A.prototype.y = '';
-      A.prototype.z = '';
-
       """}
 
     }

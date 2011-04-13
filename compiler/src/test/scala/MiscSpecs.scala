@@ -51,7 +51,6 @@ class MiscSpecs extends PrinterFixtureSpec {
       var self = this;
       self.u = u;
     };
-    HashMap.prototype.u = null;
     HashMap.$apply = function(e) {
       var self = this;
       return new HashMap(e);
@@ -139,7 +138,7 @@ class MiscSpecs extends PrinterFixtureSpec {
 
     o1.m3 = function() {
       var self = this;
-      o1.m1('foo',function(x) {return console.log(x);});
+      o1.m1('foo',function(x) {console.log(x);});
     };
 
     """}
@@ -168,12 +167,12 @@ class MiscSpecs extends PrinterFixtureSpec {
     goog.provide('B');
     goog.provide('o');
 
-    /** @constructor*/B = function(name) {
+    /** @constructor*/
+    B = function(name) {
       var self = this;
       self.name = name;
     };
 
-    B.prototype.name = null;
     B.prototype.doit = function() {
       var self = this;
     };

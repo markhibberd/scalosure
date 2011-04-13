@@ -34,9 +34,8 @@ abstract class PrinterFixtureSpec extends Spec with BeforeAndAfterAll {
         }
 
         def toDebug(jsCode:String) {
-            println("actual: "+actual)
-            println()
-            println("expect: "+jsCode)
+            println("------------------------")
+            println(actual)
             if(testdriving) {
                 val pw = new PrintWriter(new BufferedWriter(new FileWriter("testdriven.js")));
                 pw.print(actual)
