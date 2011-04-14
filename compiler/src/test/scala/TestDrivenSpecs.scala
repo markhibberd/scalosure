@@ -10,15 +10,23 @@ class TestDrivenSpecs extends PrinterFixtureSpec {
     testdriving = true
 
     parser expect {"""
-    object o {
-      var onError:Function1[String, Unit] = (x) => {}
-      def start() = {
-        onError = (s) => {
-          val z = s match {
-            case x:String => println("was string")
-            case x => println("not string")
-          }
+    import scalosure.JsArray
+
+    class F(xs:JsArray[Any]) {
+      def fe() {
+        var i = 0
+        while(i < xs.length) {
+            println(xs(i))
+            i = i + 1
         }
+      }
+    }
+
+    object o {
+      def start() = {
+        val zs = JsArray.empty[String]
+        zs.push("foo")
+        println(zs(0))
       }
     }
     """} toDebug {"""

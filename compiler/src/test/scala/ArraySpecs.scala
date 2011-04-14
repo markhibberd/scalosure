@@ -13,7 +13,7 @@ class ArraySpecs extends PrinterFixtureSpec {
 
             object o {
                 def m1() = {
-                    val xs = Array("one", "two", "three")
+                    val xs = scalosure.JsArray("one", "two", "three")
                     var i = 0
                     while(i < xs.length) {
                         println(xs(i))
@@ -22,7 +22,7 @@ class ArraySpecs extends PrinterFixtureSpec {
                 }
             }
 
-            """} toBe {"""
+            """} toDebug {"""
             goog.provide('o');
             o.m1 = function() {
                 var self = this;

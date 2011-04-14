@@ -247,7 +247,7 @@ trait S2JSPrinter {
           case _ => args map { buildObjectLiteral } mkString("{",",","}")
         }
 
-        case x @ Apply(Select(q, n), args) if q.toString.matches("s2js.JsArray") => args map {
+        case x @ Apply(Select(q, n), args) if q.toString.matches("scalosure.JsArray") => args map {
           buildObjectLiteral
         } mkString("[",",","]")
 
@@ -285,75 +285,75 @@ trait S2JSPrinter {
 
         case x @ Apply(fun, args) =>
 
-          debug("1a", x)
+          val argumentList = x.symbol.paramss
 
-          args.foreach(y => debug("1b", y.getClass + ": " + y))
+          def buildArgs(t:Tree):List[Tree] = t match {
+            case Apply(f, xs) => buildArgs(f) ++ xs
+            case _ => Nil
+          }
 
-            val argumentList = x.symbol.paramss
+          val passedArgs = (buildArgs(fun) ++ args) filterNot { _.toString.contains("$default$") }
 
-            def buildArgs(t:Tree):List[Tree] = t match {
-              case Apply(f, xs) => buildArgs(f) ++ xs
-              case _ => Nil
+          def buildAnArg(t:Tree):String = t match {
+            case x @ Function(_, _) => buildTree(x)
+            case x @ Block(stats, y @ Function(vparams, Apply(f, as))) =>
+              "function(%s) {return %s(%s)}".format(as.mkString("_", ",", "_"), buildTree(f), as.mkString("_", ",", "_"))
+            case x => buildTree(x)
+          }
+
+          val processedArgs = passedArgs.zip(x.symbol.paramss.flatten) map { 
+            //case (passed, defined) if defined.tpe.typeSymbol.nameString.matches("""(Function0|\<byname\>)""") => debug("1b", passed); "function() {%s}".format(buildTree(passed))
+            case (passed, defined) => buildAnArg(passed)
+          }
+
+          def ownerName(t:Tree) = if(fun.hasSymbol) Some(fun.symbol.owner.nameString) else  None
+
+          val tmp = ownerName(fun) match {
+            case Some("JsArray") if fun.symbol.nameString == "apply" => "%s[%s]"
+            case _ => "%s(%s)"
+          }
+
+          def buildApply(f:Tree) = tmp.format(buildTree(f), processedArgs.mkString(","))
+
+          def isVarArgs(t:Tree):Boolean = t.tpe.params.headOption match {
+            case Some(firstParam) => firstParam.tpe.toString.matches("""\(String, [^)].*\)\*""")
+            case None => false
+          }
+
+          def isArrayArg(t:Tree):Boolean = t.tpe.params.headOption match {
+            case Some(firstParam) => firstParam.tpe.toString.matches("""[a-zA-Z0-9]+\*""")
+            case None => false
+          }
+
+          fun match {
+            case TypeApply(f @ Select(_, _), _) if isVarArgs(f) => {
+              "%s(%s)".format(buildTree(f), args map { buildObjectLiteral } mkString("{",",","}"))
             }
-
-            val passedArgs = (buildArgs(fun) ++ args) filterNot { _.toString.contains("$default$") }
-
-            def buildAnArg(t:Tree):String = t match {
-              case x @ Function(_, _) => buildTree(x)
-              case x @ Block(stats, y @ Function(vparams, Apply(f, as))) =>
-                "function(%s) {return %s(%s)}".format(as.mkString("_", ",", "_"), buildTree(f), as.mkString("_", ",", "_"))
-              case x => buildTree(x)
+            case TypeApply(f @ Select(_, _), _) if isArrayArg(f) => {
+              "%s(%s)".format(buildTree(f), args map { buildObjectLiteral } mkString("[",",","]"))
             }
-
-            val processedArgs = passedArgs.zip(x.symbol.paramss.flatten) map { 
-              //case (passed, defined) if defined.tpe.typeSymbol.nameString.matches("""(Function0|\<byname\>)""") => debug("1b", passed); "function() {%s}".format(buildTree(passed))
-              case (passed, defined) => buildAnArg(passed)
+            case Apply(f @ Select(_, _), _) if isVarArgs(f)  => {
+              "%s(%s)".format(buildTree(f), args map { buildObjectLiteral } mkString("{",",","}"))
             }
-
-            def ownerName(t:Tree) = if(fun.hasSymbol) Some(fun.symbol.owner.nameString) else  None
-
-            val tmp = ownerName(fun) match {
-                case Some("Array" | "MapLike") => "%s[%s]"
-                case _ => "%s(%s)"
+            case Apply(f @ Select(_, _), _) if isArrayArg(f)  => {
+              "%s(%s)".format(buildTree(f), args map { buildObjectLiteral } mkString("[",",","]"))
             }
-
-            def buildApply(f:Tree) = tmp.format(buildTree(f), processedArgs.mkString(","))
-
-            def isVarArgs(t:Tree):Boolean = t.tpe.params.headOption match {
-              case Some(firstParam) => firstParam.tpe.toString.matches("""\(String, [^)].*\)\*""")
-              case None => false
+            case Apply(f, xs) => buildApply(f)
+            case f @ Select(_, _) if isVarArgs(f) => {
+              "%s(%s)".format(buildTree(f), args map { buildObjectLiteral } mkString("{",",","}"))
             }
-
-            def isArrayArg(t:Tree):Boolean = t.tpe.params.headOption match {
-              case Some(firstParam) => firstParam.tpe.toString.matches("""[a-zA-Z0-9]+\*""")
-              case None => false
+            case f @ Select(_, _) if isArrayArg(f) => {
+              "%s(%s)".format(buildTree(f), args map { buildObjectLiteral } mkString("[",",","]"))
             }
-
-            fun match {
-                case TypeApply(f @ Select(_, _), _) if isVarArgs(f) => {
-                  "%s(%s)".format(buildTree(f), args map { buildObjectLiteral } mkString("{",",","}"))
-                }
-                case TypeApply(f @ Select(_, _), _) if isArrayArg(f) => {
-                  "%s(%s)".format(buildTree(f), args map { buildObjectLiteral } mkString("[",",","]"))
-                }
-                case Apply(f @ Select(_, _), _) if isVarArgs(f)  => {
-                  "%s(%s)".format(buildTree(f), args map { buildObjectLiteral } mkString("{",",","}"))
-                }
-                case Apply(f @ Select(_, _), _) if isArrayArg(f)  => {
-                  "%s(%s)".format(buildTree(f), args map { buildObjectLiteral } mkString("[",",","]"))
-                }
-                case Apply(f, xs) => buildApply(f)
-                case f @ Select(_, _) if isVarArgs(f) => {
-                  "%s(%s)".format(buildTree(f), args map { buildObjectLiteral } mkString("{",",","}"))
-                }
-                case f @ Select(_, _) if isArrayArg(f) => {
-                  "%s(%s)".format(buildTree(f), args map { buildObjectLiteral } mkString("[",",","]"))
-                }
-                case f @ Select(q, n) if f.symbol.owner.toString.contains("Array") => {
-                  tmp.format(buildTree(q), processedArgs.mkString(","))
-                }
-                case y =>  buildApply(fun)
+            case f @ Select(q, n) if f.symbol.owner.fullName == "scala.Array" => {
+              tmp.format(buildTree(q), processedArgs.mkString(","))
             }
+            case f @ Select(q, n) if f.symbol.owner.fullName == "scalosure.JsArray" && n.toString == "apply" => {
+              tmp.format(buildTree(q), processedArgs.mkString(","))
+            }
+            case TypeApply(f @ Select(q, n), _) if f.symbol.fullName == "scalosure.JsArray.empty" => "[]"
+            case y => buildApply(fun)
+          }
 
         case x @ TypeApply(Select(q, n), args) if(n.toString == "asInstanceOf") => buildTree(q)
 
@@ -387,6 +387,7 @@ trait S2JSPrinter {
         case x @ Select(qualifier, name) if(name.toString == "package") => buildTree(qualifier)
 
         case x @ Select(qualifier, name) => qualifier match {
+            case y @ New(tt) if tt.symbol.fullName == "scalosure.JsArray" => "new Array"
             case y @ New(tt) => "new " + (if(tt.toString.startsWith("browser")) tt.symbol.nameString else scala2scalosure(tt.symbol))
             case y @ Ident(_) if(name.toString == "apply" && (x.symbol.owner.isSynthetic || x.symbol.owner.nameString == "JsObject")) => "%s.$apply".format(
               if(y.symbol.isLocal) y.symbol.nameString else y.symbol.fullName)
@@ -436,12 +437,12 @@ trait S2JSPrinter {
             "while(%s) {%s}".format(buildTree(cond), transformedThen)
 
         case x => x match {
-            case y @ Match(_, _) => buildSwitch(y)
-            case y @ TypeApply(fun, args) => ""
-            case y @ Typed(expr, tpt) if tpt.toString == "_*" => expr.toString
-            case y:TypeTree => "typetree"
-            case y @ New(tpe:TypeTree) => "new %s".format(tpe.symbol.fullName)
-            case y => println(y.getClass); "#NOT IMPLEMENTED#"
+          case y @ Match(_, _) => buildSwitch(y)
+          case x @ New(tpe:TypeTree) => "new %s".format(tpe.symbol.fullName)
+          case y @ TypeApply(fun, args) => ""
+          case y @ Typed(expr, tpt) if tpt.toString == "_*" => expr.toString
+          case y:TypeTree => "typetree"
+          case y => println(y.getClass); "#NOT IMPLEMENTED#"
         }
     }
     
@@ -582,7 +583,7 @@ trait S2JSPrinter {
 
         var currentFile:scala.tools.nsc.io.AbstractFile = null
 
-        val thingsToIgnore = List("scalosure.script", "s2js.JsObject", "scalosure.JsObject", "s2js.JsArray", "s2js.Html", "ClassManifest", "scala.runtime.AbstractFunction1",
+        val thingsToIgnore = List("scalosure.script", "s2js.JsObject", "scalosure.JsObject", "scalosure.JsArray", "s2js.Html", "ClassManifest", "scala.runtime.AbstractFunction1",
           "scala.runtime.AbstractFunction2", "scala.runtime.AbstractFunction3", "scala.Tuple2", "scala.Tuple3", "scala.Product", "scala.ScalaObject", 
           "java.lang", "scala.xml", "scala.package", "$default$", "browser", "scala.runtime", "scala.Any", "scala.Equals", "scala.Boolean", "scala.Function0",
           "scala.Function1", "scala.Predef", "scala.Int", "scala.Array", "scala.reflect.Manifest")

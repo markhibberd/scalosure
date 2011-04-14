@@ -82,7 +82,7 @@ class XMLHttpRequest {
   def abort():Unit = {}
   def getResponseHeader(header:String):String = ""
   def open(method:String, url:String, async:Boolean = true, username:String = "", password:String = ""):Unit = {}
-  def send(data:String):Unit = {}
+  def send(data:String = ""):Unit = {}
   def setRequestHeader(header:String, value:String):Unit = {}
 
   var onreadystatechange:Function0[Unit] = null
