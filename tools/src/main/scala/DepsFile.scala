@@ -16,7 +16,7 @@ trait DepsFile {
   def buildList(file:File, re:Regex) = re.findAllIn(
     io.Source.fromFile(file).getLines.mkString).matchData map { m => m.group(1) }
 
-  def jsDepedencies(path:String, webappPath:String):String = {
+  def jsDepedencies(path:String, base:String):String = {
 
     val paths = tree(new File(path)).filter(_.getName.endsWith(".js"))
 
@@ -30,7 +30,7 @@ trait DepsFile {
 
       val template = "goog.addDependency('../../..%s', %s, %s);" + System.getProperty("line.separator") 
 
-      sb.append(template.format(path.getAbsolutePath.stripPrefix(webappPath), it2json(prvs), it2json(reqs)))
+      sb.append(template.format(path.getAbsolutePath.stripPrefix(base).replace("\\", "/"), it2json(prvs), it2json(reqs)))
     }
 
     return sb.toString
