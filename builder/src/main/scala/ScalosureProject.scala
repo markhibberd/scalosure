@@ -16,10 +16,10 @@ trait ScalosureProject extends DefaultWebProject with AutoCompilerPlugins {
 
   override def compileOptions = 
     CompileOption("-P:scalosure:input:"+scalosurePackages.mkString(";")) ::
-    CompileOption("-P:scalosure:output:" + outputPath / "scalosure") :: 
+    CompileOption("-P:scalosure:output:" + outputPath / "js") :: 
     super.compileOptions.toList
 
-  override def extraWebappFiles = (outputPath ##) / "scalosure" ** "*.js"
+  override def extraWebappFiles = (outputPath ##) / "js" ** "*.js"
 
   def createCustomFile() = {
 

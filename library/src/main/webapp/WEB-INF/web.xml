@@ -1,27 +1,27 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <web-app xmlns="http://java.sun.com/xml/ns/javaee"
-		 xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-		 xsi:schemaLocation="http://java.sun.com/xml/ns/javaee http://java.sun.com/xml/ns/javaee/web-app_2_5.xsd"
-		 version="2.5">
-	
-	<servlet>
-		<servlet-name>deps</servlet-name>
-		<servlet-class>s2js.tools.DepsFileServlet</servlet-class>
-		<init-param>
-			<param-name>base</param-name>
-			<param-value>.</param-value>
-		</init-param>
-		<init-param>
-			<param-name>path</param-name>
-			<param-value>/scalosure</param-value>
-		</init-param>
-	</servlet>
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://java.sun.com/xml/ns/javaee http://java.sun.com/xml/ns/javaee/web-app_2_5.xsd"
+    version="2.5">
 
-	<servlet-mapping>
-		<servlet-name>deps</servlet-name>
-		<url-pattern>/js/deps.js</url-pattern>
-	</servlet-mapping>
+    <servlet>
+        <servlet-name>deps</servlet-name>
+        <servlet-class>s2js.tools.DepsFileServlet</servlet-class>
+        <init-param>
+            <param-name>base</param-name>
+            <param-value>.</param-value>
+        </init-param>
+        <init-param>
+            <param-name>path</param-name>
+            <param-value>/js</param-value>
+        </init-param>
+    </servlet>
+
+    <servlet-mapping>
+        <servlet-name>deps</servlet-name>
+        <url-pattern>/js/deps.js</url-pattern>
+    </servlet-mapping>
 
 </web-app>
 
