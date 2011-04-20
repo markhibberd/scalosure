@@ -32,7 +32,7 @@ describe('the option monad', function() {
     describe('given no value', function() {
 
         beforeEach(function() {
-            value = new scalosure.None();
+            value = scalosure.None;
         });
 
         it("should be empty", function() {
