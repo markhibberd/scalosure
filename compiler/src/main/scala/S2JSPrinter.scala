@@ -141,7 +141,7 @@ trait S2JSPrinter {
 
       moduleDef.impl.foreach { 
         case x @ Apply(Select(Super(qual, mix), name), args) if(name.toString == "<init>") => superClass match {
-          case Some(sc) => lb += "%s = new %s(%s);\n".format(objectName, sc.symbol.fullName, args.mkString(","))
+          case Some(sc) => lb += "%s = new %s(%s);\n".format(objectName, sc.symbol.fullName, args.map(buildTree).mkString(","))
           case None => 
         }
         case _ => 
