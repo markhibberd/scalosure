@@ -34,6 +34,9 @@ class List(xs:JsArray[Any]) {
     xs.push(x)
   }
 
+  def size():Long = xs.length
+
   def toArray():JsArray[Any] = xs
 }
 
+object Nil extends List(JsArray.empty[Any])
