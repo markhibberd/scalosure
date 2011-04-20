@@ -213,6 +213,7 @@ class StatementSpecs extends PrinterFixtureSpec {
         }
 
         it("can handle default arguments") {
+
             parser expect {"""
 
             object o1 {

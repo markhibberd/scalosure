@@ -10,20 +10,9 @@ class PackageSpecs extends PrinterFixtureSpec {
     it("can be case classes") {
 
       parser expect {"""
-
       case class A(name:String)
-
-      object o {
-        def m1() {
-          val a = A("name")
-        }
-      }
-
       """} toBe {"""
-
       goog.provide('A');
-      goog.provide('o');
-
       goog.require('scalosure');
       goog.require('scalosure.Some');
 
@@ -36,16 +25,10 @@ class PackageSpecs extends PrinterFixtureSpec {
         var self = this;
         return self.name;
       };
-      A.prototype.name = null;
-
-      o.m1 = function() {
-        var self = this;
-        var a = A.$apply('name');
-      };
       A.unapply = function(x$0) {
         var self = this;
         return (x$0 == null) ? function() {
-          return scala.None;
+          return scalosure.None;
         }() : function() {
           return scalosure.Some.$apply(x$0.name);
         }();

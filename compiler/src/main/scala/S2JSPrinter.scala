@@ -96,8 +96,8 @@ trait S2JSPrinter {
 
     def buildPackageLevelItem(t:Tree):String = t match {
         case x @ ClassDef(_, _, _, _) => buildClass(x)
-        case x @ ModuleDef(_, _, Template(_, _, body)) if(!x.symbol.hasFlag(SYNTHETIC)) => body filterNot { isDefaultThing } map { buildPackageLevelItemMember } mkString
-        case x @ ModuleDef(_, _, Template(_, _, body)) if(x.symbol.hasFlag(SYNTHETIC)) => body filterNot { isAnIgnoredMember } map { buildSyntheticMember } mkString
+        case x @ ModuleDef(_, _, _) if(!x.symbol.hasFlag(SYNTHETIC)) => buildModule(x) 
+        case x @ ModuleDef(_, _, _) if(x.symbol.hasFlag(SYNTHETIC)) => buildSyntheticModule(x)
         case x @ PackageDef(_, stats) => stats.map(buildPackageLevelItemMember).mkString
         case x =>  ""
     }
@@ -113,114 +113,166 @@ trait S2JSPrinter {
       case x @ DefDef(mods, _, _, _, _, rhs) if isDefaultNull(x) => buildMethod(x, x.symbol.owner.isPackageObjectClass)
       case x @ ValDef(_, _, _, _) => buildField(x, x.symbol.owner.isPackageObjectClass)
       case x @ ModuleDef(_, _, _) => buildPackageLevelItem(x)
-      case x =>  ""
+      case x => ""
+    }
+
+    def buildSyntheticModule(moduleDef:ModuleDef):String = {
+
+      val lb = new ListBuffer[String]
+
+      val objectNAme = moduleDef.symbol.fullName
+
+      def neededSyntheticMember(x:Tree) = x.hasSymbol && List("unapply", "apply").exists(x.symbol.fullName.endsWith(_))
+
+      lb += moduleDef.impl.filter(neededSyntheticMember).map(buildPackageLevelItemMember).mkString
+
+      lb.mkString
+    }
+
+    def buildModule(moduleDef:ModuleDef):String = {
+
+      val lb = new ListBuffer[String]
+
+      val objectName = moduleDef.symbol.fullName
+
+      val superClass = moduleDef.impl.parents filterNot {
+        x => List("java.lang.Object", "scala.ScalaObject").contains(x.symbol.fullName) 
+      } headOption
+
+      moduleDef.impl.foreach { 
+        case x @ Apply(Select(Super(qual, mix), name), args) if(name.toString == "<init>") => superClass match {
+          case Some(sc) => lb += "%s = new %s(%s);\n".format(objectName, sc.symbol.fullName, args.mkString(","))
+          case None => 
+        }
+        case _ => 
+      }
+
+      val superClasses = moduleDef.impl.parents filterNot {
+        x => List("java.lang.Object", "scala.ScalaObject").contains(x.symbol.fullName)
+      } 
+      
+      def isIgnoredMember(x:Symbol):Boolean = isCosmicMember(x) || x.isConstructor || x.hasFlag(ACCESSOR)
+
+      def buildMembersFromTrait(t:Tree) = t.tpe.members.filterNot(isIgnoredMember) map {
+        mem => "%s.%s = %s.prototype.%s;\n".format(objectName, mem.nameString, mem.owner.fullName, mem.nameString)
+      }
+
+      superClasses match {
+        case baseClass :: traits => traits foreach { t => lb += buildMembersFromTrait(t).mkString }
+        case _ => 
+      }
+
+      lb += moduleDef.impl.body.filterNot(isDefaultThing).map(buildPackageLevelItemMember).mkString
+
+      lb.mkString
     }
 
     def buildClass(t:ClassDef):String = {
 
-        val lb = new ListBuffer[String]
+      val lb = new ListBuffer[String]
 
-        val className = t.symbol.fullName
+      val className = t.symbol.fullName
 
-        val superClassName = t.impl.parents filterNot { isCosmicType } headOption
+      val superClassName = t.impl.parents filterNot { isCosmicType } headOption
 
-        def isIgnoredMember(x:Symbol):Boolean = 
-            isCosmicMember(x) || 
-            x.isConstructor || 
-            x.hasFlag(ACCESSOR)
+      def isIgnoredMember(x:Symbol):Boolean = isCosmicMember(x) || x.isConstructor || x.hasFlag(ACCESSOR)
 
-        if(t.symbol.isTrait) {
+      if(t.symbol.isTrait) {
 
-            lb += "\n/** @constructor*/\n"
-            lb += "%s = function() {};\n".format(className)
+        lb += "\n/** @constructor*/\n"
+        lb += "%s = function() {};\n".format(className)
 
-        } else {
+      } else {
 
-            val ctorDef = t.impl.body.filter {
-                x => x.isInstanceOf[DefDef] && x.symbol.isPrimaryConstructor
-            }.head.asInstanceOf[DefDef]
+        val ctorDef = t.impl.body.filter {
+          x => x.isInstanceOf[DefDef] && x.symbol.isPrimaryConstructor
+        }.head.asInstanceOf[DefDef]
 
-            val ctorArgs = ctorDef.vparamss.flatten.map(_.symbol.nameString)
+        val ctorArgs = ctorDef.vparamss.flatten.map(_.symbol.nameString)
 
-            lb += "/** @constructor*/\n"
-            lb += "%s = function(%s) {\n".format(className, ctorArgs.mkString(","))
+        lb += "/** @constructor*/\n"
+        lb += "%s = function(%s) {\n".format(className, ctorArgs.mkString(","))
 
-            lb += "var self = this;\n"
+        lb += "var self = this;\n"
 
-            // handle defaults in a javascript way
-            ctorDef.vparamss.flatten filter { _.symbol.hasDefault } foreach { 
-              x => lb += "if (typeof(%1$s) === 'undefined') { %1$s = %2$s; };\n".format(x.nameString, buildTree(x.asInstanceOf[ValDef].rhs))   
-            }
-
-            // superclass construction and field initialization
-            t.impl.foreach {
-                case x @ Apply(Select(Super(qual, mix), name), args) if(name.toString == "<init>") => superClassName match {
-                    case Some(y) => 
-                        val filteredArgs = args.filter(!_.toString.contains("$default$")).map(_.toString)
-                        lb += "%s.call(%s);\n".format(y.symbol.fullName, (List("self") ++ filteredArgs).mkString(","))
-                        ctorArgs.diff(filteredArgs).foreach {
-                            y => lb += "self.%1$s = %1$s;\n".format(y)
-                        }
-                    case None => 
-                        ctorArgs.foreach {
-                            y => lb += "self.%1$s = %1$s;\n".format(y)
-                        }
-                }
-                case x => 
-            }
-
-            val tms = t.impl.parents.filter(_.symbol.isTrait).filterNot(x => isIgnoredMember(x.symbol)) map { 
-              x => x.tpe.members filterNot { isIgnoredMember } filter { x => !x.isMethod } map { m => (m.owner.fullName, buildName(m)) }
-            }
-
-            tms.flatten foreach {
-              x => lb += "self.%s = %s.prototype.%s;\n".format(x._2, x._1, x._2)
-            }
-
-            t.impl.body filterNot { isAnIgnoredMember } foreach {
-              case x @ Apply(fun, args) => lb += buildTree(x)+";\n"
-              case x @ ClassDef(_, _, _, _) => lb += buildClass(x)
-              case x @ ValDef(mods, name, tpt, rhs) if !x.symbol.isParamAccessor => lb += "self.%s = %s;\n".format(name.toString.trim, buildTree(rhs))
-              case x => 
-            }
-
-            lb += "};\n"
+        // handle defaults in a javascript way
+        ctorDef.vparamss.flatten filter { _.symbol.hasDefault } foreach { 
+          x => lb += "if (typeof(%1$s) === 'undefined') { %1$s = %2$s; };\n".format(x.nameString, buildTree(x.asInstanceOf[ValDef].rhs))   
         }
 
-        superClassName.foreach {
-          x => lb += "goog.inherits(%s, %s);\n".format(className, if(x.symbol.isTrait) "ScalosureObject" else x.symbol.fullName)
+        debug("1a ", t)
+
+        // superclass construction and field initialization
+        t.impl.foreach {
+          case x @ Apply(Select(Super(qual, mix), name), args) if(name.toString == "<init>") => superClassName match {
+            case Some(y) => 
+              val filteredArgs = args.filter(!_.toString.contains("$default$")).map(_.toString)
+              lb += "%s.call(%s);\n".format(y.symbol.fullName, (List("self") ++ filteredArgs).mkString(","))
+              ctorArgs.diff(filteredArgs).foreach {
+                y => lb += "self.%1$s = %1$s;\n".format(y)
+              }
+            case None => 
+              ctorArgs.foreach {
+                y => lb += "self.%1$s = %1$s;\n".format(y)
+              }
+          }
+          case x => 
         }
 
-        val traits = t.impl.parents filterNot { isCosmicType } filter { _.symbol.isTrait }
-
-        def isValDef(x:Tree):Boolean = x match {
-          case ValDef(_, _, _, _) => true
-          case _ => false
+        val tms = t.impl.parents.filter(_.symbol.isTrait).filterNot(x => isIgnoredMember(x.symbol)) map { 
+          x => x.tpe.members filterNot { isIgnoredMember } filter { x => !x.isMethod } map { m => (m.owner.fullName, buildName(m)) }
         }
 
-        val traitMembers = traits map { 
-            x => x.tpe.members filterNot { isIgnoredMember } filter { _.isMethod } map { m => (m.owner.fullName, buildName(m)) }
+        tms.flatten foreach {
+          x => lb += "self.%s = %s.prototype.%s;\n".format(x._2, x._1, x._2)
         }
 
-        traitMembers.flatten foreach {
-            x => lb += "%s.prototype.%s = %s.prototype.%s;\n".format(className, x._2, x._1, x._2)
-        }
-        
-        val caseMemberNames = List("productPrefix", "productArity", "productElement", "equals", "toString", "canEqual", "hashCode", "copy")
-
-        def isCaseMember(x:Tree):Boolean = caseMemberNames.exists(x.symbol.fullName.endsWith(_))
-
-        def isSynthetic(x:Tree):Boolean = x.symbol.isSynthetic
-
-        if(t.symbol.hasFlag(CASE)) {
-          lb ++= t.impl.body filterNot { isCaseMember } map { buildPackageLevelItemMember }
-        } else if(t.symbol.isTrait) {
-          lb ++= t.impl.body map { buildPackageLevelItemMember }
-        } else {
-          lb ++= t.impl.body filterNot { isValDef } map { buildPackageLevelItemMember }
+        t.impl.body filterNot { isAnIgnoredMember } foreach {
+          case x @ Apply(fun, args) => lb += buildTree(x)+";\n"
+          case x @ ClassDef(_, _, _, _) => lb += buildClass(x)
+          case x @ ValDef(mods, name, tpt, rhs) if !x.symbol.isParamAccessor => lb += "self.%s = %s;\n".format(name.toString.trim, buildTree(rhs))
+          case x => 
         }
 
-        return lb.mkString
+        lb += "};\n"
+      }
+
+      superClassName.foreach {
+        x => lb += "goog.inherits(%s, %s);\n".format(className, if(x.symbol.isTrait) "ScalosureObject" else x.symbol.fullName)
+      }
+
+      val traits = t.impl.parents filterNot { isCosmicType } filter { _.symbol.isTrait }
+
+      def isValDef(x:Tree):Boolean = x match {
+        case ValDef(_, _, _, _) => true
+        case _ => false
+      }
+
+      val traitMembers = traits map { 
+        x => x.tpe.members filterNot { isIgnoredMember } filter { _.isMethod } map { m => (m.owner.fullName, buildName(m)) }
+      }
+
+      traitMembers.flatten foreach {
+        x => lb += "%s.prototype.%s = %s.prototype.%s;\n".format(className, x._2, x._1, x._2)
+      }
+
+      val caseMemberNames = List("productPrefix", "productArity", "productElement", "equals", "toString", "canEqual", "hashCode", "copy")
+
+      def isCaseMember(x:Tree):Boolean = caseMemberNames.exists(x.symbol.fullName.endsWith(_))
+
+      def isSynthetic(x:Tree):Boolean = x.symbol.isSynthetic
+
+      def isValidMember(x:Tree):Boolean = x.isInstanceOf[ValDef] || (x.hasSymbol && x.symbol.hasFlag(ACCESSOR))
+
+      if(t.symbol.hasFlag(CASE)) {
+        lb ++= t.impl.body.filterNot(isCaseMember).map(buildPackageLevelItemMember)
+      } else if(t.symbol.isTrait) {
+        lb ++= t.impl.body.map(buildPackageLevelItemMember)
+      } else {
+        lb ++= t.impl.body.filterNot(isValidMember).map(buildPackageLevelItemMember)
+      }
+
+      return lb.mkString
     }
 
     def buildTree(t:Tree):String = t match {
@@ -395,7 +447,7 @@ trait S2JSPrinter {
             case y @ Ident(_) if name.toString == "apply" && y.symbol.isModule => if(y.symbol.isLocal) y.symbol.nameString+"."+translateName(name) else y.symbol.fullName+"."+translateName(name)
             case y @ Ident(_) if name.toString == "apply" => if(y.symbol.isLocal) y.symbol.nameString else y.symbol.fullName
             case y @ This(_) if(x.symbol.owner.isPackageObjectClass) => y.symbol.owner.fullName+"."+name
-            case y @ This(_) if(x.symbol.owner.isModuleClass) => y.symbol.fullName+"."+name
+            case y @ This(_) if(x.symbol.owner.isModuleClass) => translateName(y.symbol.fullName)+"."+name
             case y @ This(_) => "self."+name
             case y @ Select(q, n) if name.toString == "apply" && y.symbol.isModule => if(y.symbol.isLocal) {
               y.symbol.nameString.replace("scala", "scalosure")+"."+translateName(name) 
@@ -685,9 +737,11 @@ trait S2JSPrinter {
         val rhs = buildTree(tree.rhs)
 
         if(tree.symbol.owner.isModuleClass) {
-            "%s.%s = %s;\n".format(className, buildName(tree.symbol), rhs)
+          "%s.%s = %s;\n".format(className, buildName(tree.symbol), rhs)
+        } else if(tree.symbol.owner.isTrait) {
+          "%s.prototype.%s = %s;\n".format(className, buildName(tree.symbol), rhs)
         } else {
-            "%s.prototype.%s = %s;\n".format(className, buildName(tree.symbol), rhs)
+          ""
         }
     }
 
@@ -697,6 +751,7 @@ trait S2JSPrinter {
 
     def translateName(s:Name):String = s.toString match {
         case "apply" => "$apply"
+        case "scala" => "scalosure"
         case x => x
     }
 

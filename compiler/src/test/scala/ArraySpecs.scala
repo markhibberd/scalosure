@@ -7,7 +7,7 @@ class ArraySpecs extends PrinterFixtureSpec {
 
     describe("arrays") {
 
-        it("can be iterated using while statement") {
+        ignore("can be iterated using while statement") {
 
             parser expect {"""
 
@@ -22,7 +22,7 @@ class ArraySpecs extends PrinterFixtureSpec {
                 }
             }
 
-            """} toDebug {"""
+            """} toBe {"""
             goog.provide('o');
             o.m1 = function() {
                 var self = this;
