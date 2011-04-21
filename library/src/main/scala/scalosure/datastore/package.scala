@@ -1,27 +1,56 @@
-package scalosure
+package scalosure.datastore
 
-package object datastore {
+import scalosure._
+import scalosure.net._
+import scalosure.collection.mutable.List
 
-  import s2js._
-  import scalosure.collection.mutable.HashMap
+class Entity(val key:String)
 
-  val collections = new HashMap[Collection[Entity]](JsObject.empty[Collection[Entity]])
+case class Config(name:String, url:String)
 
-  def get[A <: Entity](name:String):Collection[A] = {
-    collections.get(name).asInstanceOf[Collection[A]]
+object manager {
+
+  val cols = JsObject.empty[Collection]
+  val configs = JsObject.empty[Any]
+
+  var async = true
+
+  def get(name:String):Collection = cols(name)
+
+  def download(c:Config, cb:XhrIoCallback) = {
+
+    val xhr = new XhrIo(c.url, "GET", async)
+
+    xhr.onComplete = (e:XhrIoEvent) => {
+      cols(c.name) = new Collection(e.responseAs[JsObject[Entity]], c)
+      cb.requestComplete()
+    }
+  
+    xhr.send("")
   }
 
-  def register[A <: Entity](name:String, url:String):Unit = {
+  def register(configs:JsArray[Config], cb: () => Unit) {
 
-    val xio = new scalosure.net.XhrIo("http://localhost:8080/sample.json", "GET")
+    val xhrCallback = new XhrIoCallback(configs.length, cb)
 
-    xio.onComplete = { e => 
-      collections.push(name, (new Collection[A](e.responseAs[JsObject[A]])).asInstanceOf[Collection[Entity]])
+    var i = 0
+
+    while(i < configs.length) {
+      val c = configs(i)
+      download(c, xhrCallback)
+      i = i + 1
     }
   }
 
-  def update(fn: () => Unit) {
-    
-  }
+  def execute(query:Query, callback:(List) => Unit) {
 
+    val xhr = new XhrIo(query.encoded())
+
+    xhr.onComplete = (e:XhrIoEvent) => {
+      callback(new List(e.responseAs[JsArray[Any]]))
+    }
+  
+    xhr.send("")
+  }
 }
+
