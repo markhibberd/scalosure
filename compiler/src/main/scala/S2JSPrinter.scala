@@ -441,7 +441,7 @@ trait S2JSPrinter {
         case x @ Select(qualifier, name) => qualifier match {
             case y @ New(tt) if tt.symbol.fullName == "scalosure.JsArray" => "new Array"
             case y @ New(tt) => "new " + (if(tt.toString.startsWith("browser")) tt.symbol.nameString else scala2scalosure(tt.symbol))
-            case y @ Ident(_) if(name.toString == "apply" && (x.symbol.owner.isSynthetic || x.symbol.owner.nameString == "JsObject")) => "%s.$apply".format(
+            case y @ Ident(_) if(name.toString == "apply" && (x.symbol.owner.isSynthetic || x.symbol.owner.nameString == "JsObject")) => "%s.appli".format(
               if(y.symbol.isLocal) y.symbol.nameString else y.symbol.fullName)
             case y @ Ident(_) if(y.name.toString == "browser") => name.toString
             case y @ Ident(_) if name.toString == "apply" && y.symbol.isModule => if(y.symbol.isLocal) y.symbol.nameString+"."+translateName(name) else y.symbol.fullName+"."+translateName(name)
@@ -750,7 +750,7 @@ trait S2JSPrinter {
     } else ns
 
     def translateName(s:Name):String = s.toString match {
-        case "apply" => "$apply"
+        case "apply" => "appli"
         case "scala" => "scalosure"
         case x => x
     }
@@ -759,7 +759,7 @@ trait S2JSPrinter {
 
     def buildName(s:Symbol):String = s.nameString match {
         case "+=" => "$plus$eq"
-        case "apply" => "$apply"
+        case "apply" => "appli"
         case x => x
     }
 
