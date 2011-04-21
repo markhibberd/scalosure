@@ -8,7 +8,7 @@ describe('the option monad', function() {
     describe('given a value', function() {
 
         beforeEach(function() {
-            value = scalosure.Some.$apply('foo');
+            value = scalosure.Some.appli('foo');
         });
 
         it("should not be empty", function() {
