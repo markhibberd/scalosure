@@ -4,6 +4,10 @@ object script {
   def literal(script:String):Unit = {}
 }
 
+object uuid {
+  def generate(num:Int):String = ""
+}
+
 class JsObject[A] {
   var x:A = _
   def foreach(fn:((String,A))=>Unit):Unit = {}
